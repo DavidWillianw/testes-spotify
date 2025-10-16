@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Spotify RPG - Charts & Artists</title>
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div id="mainView" class="page-view">
+      <header class="topbar">
+        <div class="search-bar">
+          <i class="fas fa-search"></i>
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="Artistas, álbuns ou músicas"
+          />
+        </div>
+
+        <nav class="nav-tabs">
+          <button class="nav-tab active" data-tab="homeSection">Início</button>
+          <button class="nav-tab" data-tab="musicChartsSection">
+            Top Músicas
+          </button>
+          <button class="nav-tab" data-tab="albumChartsSection">
+            Top Álbuns
+          </button>
+          <button class="nav-tab" data-tab="artistsSection">Artistas</button>
+        </nav>
+      </header>
+
+      <main class="main-container">
+        <section id="homeSection" class="content-section active">
+          <h2 class="section-title">Artistas em Destaque</h2>
+          <div id="homeGrid" class="artists-grid"></div>
+        </section>
+        <section id="musicChartsSection" class="content-section">
+          <div class="chart-header">
+            <h3>🔥 Top Músicas da Semana</h3>
+            <p id="musicCountdownTimer"></p>
+          </div>
+          <div id="musicChartsList" class="chart-list"></div>
+        </section>
+        <section id="albumChartsSection" class="content-section">
+          <div class="chart-header">
+            <h3>💿 Top Álbuns da Semana</h3>
+            <p id="albumCountdownTimer"></p>
+          </div>
+          <div id="albumChartsList" class="chart-list"></div>
+        </section>
+        <section id="artistsSection" class="content-section">
+          <h2 class="section-title">Todos os Artistas</h2>
+          <div id="artistsGrid" class="artists-grid"></div>
+        </section>
+        <section id="searchSection" class="content-section">
+          <h2 class="section-title">Resultados da Busca</h2>
+          <div id="searchResults" class="artists-grid"></div>
+          <div id="noResults" class="no-results hidden">
+            <i class="fas fa-compact-disc"></i>
+            <p>Não encontramos nada.</p>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="artistDetail" class="page-view hidden">
+      <button class="back-btn"><i class="fas fa-chevron-left"></i></button>
+
+      <header class="artist-header">
+        <div class="header-bg" id="detailBg"></div>
+        <div class="header-overlay"></div>
+      </header>
+
+      <main class="page-detail-body">
+        <div class="artist-header-content">
+          <h1 id="detailName"></h1>
+          <div class="verified-artist">
+            <i class="fas fa-check-circle"></i> Artista Verificado
+          </div>
+          <div id="artistTotalStreams" class="artist-stats"></div>
+          <div class="page-actions">
+            <button class="main-play-btn"><i class="fas fa-play"></i></button>
+            <button class="follow-btn">SEGUIR</button>
+          </div>
+        </div>
+
+        <section class="popular-songs-list">
+          <h2 class="section-title">Populares</h2>
+          <div id="popularSongsList"></div>
+        </section>
+        <section id="discographySection">
+          <div class="section-header">
+            <h3>Álbuns</h3>
+            <span class="see-all-btn" data-type="albums">Ver todos</span>
+          </div>
+          <div class="horizontal-scroll-list" id="albumsList"></div>
+          <div class="section-header">
+            <h3>Singles</h3>
+            <span class="see-all-btn" data-type="singles">Ver todos</span>
+          </div>
+          <div class="horizontal-scroll-list" id="singlesList"></div>
+        </section>
+        <section id="recommendedSection">
+          <h2 class="section-title">Os fãs também curtem</h2>
+          <div id="recommendedGrid" class="artists-grid"></div>
+        </section>
+      </main>
+    </div>
+
+    <div id="albumDetail" class="page-view hidden">
+      <button class="back-btn"><i class="fas fa-chevron-left"></i></button>
+      <header class="album-header">
+        <div class="header-bg" id="albumDetailBg"></div>
+        <div class="header-overlay"></div>
+        <div class="album-header-content">
+          <img id="albumDetailCover" src="" />
+          <h2 id="albumDetailTitle"></h2>
+          <p id="albumDetailInfo"></p>
+        </div>
+      </header>
+      <main class="page-detail-body">
+        <div class="page-actions">
+          <button class="main-play-btn"><i class="fas fa-play"></i></button>
+        </div>
+        <div id="albumTracklist"></div>
+      </main>
+    </div>
+
+    <div id="discographyDetail" class="page-view hidden">
+      <button class="back-btn"><i class="fas fa-chevron-left"></i></button>
+      <main class="content-section active">
+        <h2 class="section-title" id="discographyTypeTitle"></h2>
+        <div id="discographyGrid" class="full-page-grid"></div>
+      </main>
+    </div>
+
+    <nav class="bottom-nav">
+      <button class="bottom-nav-item active" data-tab="homeSection">
+        <i class="fas fa-home"></i><span>Início</span>
+      </button>
+      <button class="bottom-nav-item" data-tab="musicChartsSection">
+        <i class="fas fa-music"></i><span>Top Músicas</span>
+      </button>
+      <button class="bottom-nav-item" data-tab="albumChartsSection">
+        <i class="fas fa-compact-disc"></i><span>Top Álbuns</span>
+      </button>
+      <button class="bottom-nav-item" data-tab="artistsSection">
+        <i class="fas fa-users"></i><span>Artistas</span>
+      </button>
+    </nav>
+
+    <script src="script.js"></script>
+  </body>
+</html>
