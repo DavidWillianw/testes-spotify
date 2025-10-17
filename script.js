@@ -16,6 +16,18 @@ let currentContextUri = null;
 const spotifyUriCache = new Map();
 let progressInterval = null;
 
+// <<< CORREÇÃO 1: Definir a função globalmente
+// Esta função será chamada pelo SDK do Spotify assim que ele estiver pronto.
+window.onSpotifyWebPlaybackSDKReady = () => {
+    // O SDK está pronto. Agora, só precisamos do token de acesso.
+    // A função handleAuthentication() vai cuidar de chamar initSpotifyPlayer quando tiver o token.
+    console.log("Spotify SDK está pronto.");
+    // Se já tivermos um token, podemos tentar inicializar o player.
+    if (accessToken) {
+        initSpotifyPlayer(accessToken);
+    }
+};
+
 document.addEventListener('DOMContentLoaded', handleAuthentication);
 
 // --- FUNÇÕES DE AUTENTICAÇÃO E INICIALIZAÇÃO ---
@@ -40,12 +52,26 @@ function handleAuthentication() {
         });
     } else {
         document.getElementById('loginOverlay').style.display = 'none';
-        window.onSpotifyWebPlaybackSDKReady = () => initSpotifyPlayer(accessToken);
+        
+        // <<< CORREÇÃO 2: Não definimos mais a função aqui.
+        // Em vez disso, tentamos iniciar o player, pois agora temos o token.
+        // A função global onSpotifyWebPlaybackSDKReady também pode chamar initSpotifyPlayer.
+        // A verificação interna em initSpotifyPlayer garante que ele só rode uma vez.
+        if (window.Spotify) { // Verifica se o SDK já carregou
+             initSpotifyPlayer(accessToken);
+        }
+        
         startApp();
     }
 }
 
 function initSpotifyPlayer(token) {
+    // <<< CORREÇÃO 3: Adicionar uma "guarda" para evitar inicializar o player mais de uma vez.
+    if (spotifyPlayer) {
+        return;
+    }
+    console.log("Inicializando o Spotify Player com o token.");
+
     spotifyPlayer = new Spotify.Player({
         name: "Spotify RPG Player",
         getOAuthToken: cb => cb(token),
@@ -60,7 +86,7 @@ function initSpotifyPlayer(token) {
     spotifyPlayer.addListener('authentication_error', ({ message }) => {
         console.error('Authentication failed:', message);
         localStorage.removeItem('spotify_access_token');
-        handleAuthentication();
+        window.location.reload(); // Recarrega a página para forçar o login
     });
     spotifyPlayer.addListener("player_state_changed", state => {
         if (!state) {
@@ -133,8 +159,10 @@ async function startApp() {
             return { artists: [], albums: [], singles: [] };
         }
     }
-
+    
     // --- FUNÇÕES DE RENDERIZAÇÃO E UI ---
+    // (A partir daqui, o código do seu app continua o mesmo, sem alterações)
+    
     const initializeData = (apiData) => {
         const { artists: artistsList, albums: albumsData, singles: singlesData } = apiData;
         const artistsMap = new Map();
@@ -214,9 +242,9 @@ async function startApp() {
         const songRow = target.closest('.song-row, .chart-item, .track-row');
         if (songRow && accessToken) {
             let title, artist, albumId = songRow.dataset.albumId;
-            if (songRow.querySelector('.chart-title')) { title = songRow.querySelector('.chart-title').textContent; artist = songRow.querySelector('.chart-artist').textContent; } 
-            else if (songRow.querySelector('.song-row-title')) { title = songRow.querySelector('.song-row-title').textContent; if (activeArtist) artist = activeArtist.name; } 
-            else if (songRow.querySelector('.track-title')) { title = songRow.querySelector('.track-title').textContent; artist = songRow.querySelector('.track-artist').textContent; }
+            if (songRow.querySelector('.chart-title')) { title = song.querySelector('.chart-title').textContent; artist = song.querySelector('.chart-artist').textContent; } 
+            else if (songRow.querySelector('.song-row-title')) { title = song.querySelector('.song-row-title').textContent; if (activeArtist) artist = activeArtist.name; } 
+            else if (songRow.querySelector('.track-title')) { title = song.querySelector('.track-title').textContent; artist = song.querySelector('.track-artist').textContent; }
             if (title && artist) { await searchAndPlayTrack(title, artist, albumId); }
             return;
         }
@@ -238,7 +266,6 @@ async function startApp() {
         document.querySelectorAll('.content-section').forEach(s => s.classList.toggle('active', s.id === tabId));
         allNavs.forEach(n => n.classList.toggle('active', n.dataset.tab === tabId));
     }));
-    // ...renderizações iniciais
 }
 
 // ==========================================================
