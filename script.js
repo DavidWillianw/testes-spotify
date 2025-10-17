@@ -2,7 +2,7 @@
 // ============= CONFIGURAÇÃO SPOTIFY =======================
 // ==========================================================
 const CLIENT_ID = "4c1a5e5e8deb42c19d9b1b948717ea28"; // SEU CLIENT ID
-const REDIRECT_URI = "https://davidwillianw.github.io/testes-spotify/"; // <<< CORREÇÃO: Usar o URI completo e exato
+const REDIRECT_URI = "https://davidwillianw.github.io/testes-spotify/"; 
 const SCOPES = [
     "streaming", "user-read-email", "user-read-private",
     "user-read-playback-state", "user-modify-playback-state", "user-read-currently-playing"
@@ -16,10 +16,8 @@ let currentContextUri = null;
 const spotifyUriCache = new Map();
 let progressInterval = null;
 
-// <<< CORREÇÃO: Definir a função globalmente para que o SDK sempre a encontre
 window.onSpotifyWebPlaybackSDKReady = () => {
     console.log("Spotify SDK está pronto para ser usado.");
-    // A função handleAuthentication() vai chamar initSpotifyPlayer quando tiver o token.
     if (accessToken) {
         initSpotifyPlayer(accessToken);
     }
@@ -44,13 +42,12 @@ function handleAuthentication() {
     if (!accessToken) {
         document.getElementById('loginOverlay').style.display = 'flex';
         document.getElementById('loginBtn').addEventListener('click', () => {
+            // <<< A CORREÇÃO ESTÁ AQUI! Esta é a URL de autorização correta.
             const authUrl = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${SCOPES.join('%20')}`;
             window.location.href = authUrl;
         });
     } else {
         document.getElementById('loginOverlay').style.display = 'none';
-        // Se o SDK já carregou (window.Spotify existe), inicializamos o player.
-        // Se não, a função onSpotifyWebPlaybackSDKReady cuidará disso.
         if (window.Spotify && !spotifyPlayer) {
              initSpotifyPlayer(accessToken);
         }
@@ -59,7 +56,7 @@ function handleAuthentication() {
 }
 
 function initSpotifyPlayer(token) {
-    if (spotifyPlayer) return; // Evita inicializar mais de uma vez
+    if (spotifyPlayer) return;
 
     console.log("Inicializando o Spotify Player...");
     spotifyPlayer = new Spotify.Player({
@@ -103,7 +100,6 @@ async function startApp() {
     let activeArtist = null;
     let viewHistory = ['mainView'];
 
-    // --- FUNÇÕES DE API (AIRTABLE) ---
     async function loadAllData() {
         const fetchOptions = { headers: { 'Authorization': `Bearer ${AIRTABLE_API_KEY}` } };
         const tables = ['Artists?filterByFormula=%7BArtista%20Principal%7D%3D1', 'Álbuns', 'Músicas', 'Singles%20e%20EPs'];
@@ -145,7 +141,6 @@ async function startApp() {
         }
     }
     
-    // --- FUNÇÕES DE RENDERIZAÇÃO E UI ---
     const initializeData = (apiData) => {
         const { artists: artistsList, albums: albumsData, singles: singlesData } = apiData;
         const artistsMap = new Map();
@@ -221,7 +216,6 @@ async function startApp() {
         window.scrollTo(0, 0);
     };
 
-    // --- EVENT LISTENERS ---
     document.body.addEventListener('click', async (e) => {
         const target = e.target;
         const mainPlayBtn = target.closest('.main-play-btn');
@@ -230,7 +224,6 @@ async function startApp() {
         const songRow = target.closest('.song-row, .chart-item, .track-row');
         if (songRow && accessToken) {
             let title, artist, albumId = songRow.dataset.albumId;
-            // <<< CORREÇÃO AQUI: Usar songRow em vez de song
             if (songRow.querySelector('.chart-title')) { title = songRow.querySelector('.chart-title').textContent; artist = songRow.querySelector('.chart-artist').textContent; } 
             else if (songRow.querySelector('.song-row-title')) { title = songRow.querySelector('.song-row-title').textContent; if (activeArtist) artist = activeArtist.name; } 
             else if (songRow.querySelector('.track-title')) { title = songRow.querySelector('.track-title').textContent; artist = songRow.querySelector('.track-artist').textContent; }
@@ -246,7 +239,6 @@ async function startApp() {
     });
     document.querySelectorAll('.back-btn').forEach(btn => btn.addEventListener('click', () => { if (viewHistory.length > 1) { viewHistory.pop(); switchView(viewHistory[viewHistory.length - 1]); } }));
     
-    // --- CARREGAMENTO INICIAL DOS DADOS ---
     console.log("Carregando dados do Airtable...");
     const apiData = await loadAllData();
     console.log("Inicializando a interface...");
