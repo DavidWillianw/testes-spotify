@@ -1,5 +1,5 @@
 // ==========================================================
-// ============= CONFIGURAÇÃO SPOTIFY teste 20 =======================
+// ============= CONFIGURAÇÃO SPOTIFY (PKCE) ================
 // ==========================================================
 const CLIENT_ID = "4c1a5e5e8deb42c19d9b1b948717ea28"; // SEU CLIENT ID
 const REDIRECT_URI = "https://davidwillianw.github.io/testes-spotify/"; 
@@ -25,35 +25,116 @@ window.onSpotifyWebPlaybackSDKReady = () => {
 
 document.addEventListener('DOMContentLoaded', handleAuthentication);
 
-// --- FUNÇÕES DE AUTENTICAÇÃO E INICIALIZAÇÃO ---
-function handleAuthentication() {
-    const hash = window.location.hash.substring(1);
-    const params = new URLSearchParams(hash);
-    const tokenFromUrl = params.get("access_token");
+// ==========================================================
+// ============= NOVA LÓGICA DE AUTENTICAÇÃO (PKCE) =========
+// ==========================================================
 
-    if (tokenFromUrl) {
-        accessToken = tokenFromUrl;
-        localStorage.setItem("spotify_access_token", accessToken);
-        window.location.hash = "";
-    } else {
-        accessToken = localStorage.getItem("spotify_access_token");
-    }
+async function handleAuthentication() {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
 
-    if (!accessToken) {
-        document.getElementById('loginOverlay').style.display = 'flex';
-        document.getElementById('loginBtn').addEventListener('click', () => {
-            // <<< A CORREÇÃO FINAL ESTÁ AQUI! Esta é a URL de autorização correta.
-            const authUrl = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${SCOPES.join('%20')}`;
-            window.location.href = authUrl;
-        });
-    } else {
-        document.getElementById('loginOverlay').style.display = 'none';
-        if (window.Spotify && !spotifyPlayer) {
-             initSpotifyPlayer(accessToken);
+    if (code) {
+        // Passo 2: O usuário retornou do Spotify com um código. Trocamos o código por um token.
+        accessToken = await getAccessToken(code);
+        if (accessToken) {
+            document.getElementById('loginOverlay').style.display = 'none';
+            if (window.Spotify && !spotifyPlayer) {
+                initSpotifyPlayer(accessToken);
+            }
+            startApp();
+        } else {
+            // Se falhar, limpa o localStorage e mostra o botão de login
+            localStorage.removeItem('spotify_access_token');
+            localStorage.removeItem('spotify_refresh_token');
+            redirectToAuthCodeFlow();
         }
-        startApp();
+    } else {
+        // Passo 1: O usuário acabou de chegar. Verificamos se já temos um token.
+        accessToken = localStorage.getItem('spotify_access_token');
+        if (!accessToken) {
+            document.getElementById('loginOverlay').style.display = 'flex';
+            document.getElementById('loginBtn').addEventListener('click', redirectToAuthCodeFlow);
+        } else {
+            document.getElementById('loginOverlay').style.display = 'none';
+            if (window.Spotify && !spotifyPlayer) {
+                initSpotifyPlayer(accessToken);
+            }
+            startApp();
+        }
     }
 }
+
+async function redirectToAuthCodeFlow() {
+    const verifier = generateCodeVerifier(128);
+    const challenge = await generateCodeChallenge(verifier);
+
+    localStorage.setItem("spotify_verifier", verifier);
+
+    const params = new URLSearchParams();
+    params.append("client_id", CLIENT_ID);
+    params.append("response_type", "code");
+    params.append("redirect_uri", REDIRECT_URI);
+    params.append("scope", SCOPES.join(' '));
+    params.append("code_challenge_method", "S256");
+    params.append("code_challenge", challenge);
+
+    document.location = `https://accounts.spotify.com/authorize?${params.toString()}`;
+}
+
+async function getAccessToken(code) {
+    const verifier = localStorage.getItem("spotify_verifier");
+
+    const params = new URLSearchParams();
+    params.append("client_id", CLIENT_ID);
+    params.append("grant_type", "authorization_code");
+    params.append("code", code);
+    params.append("redirect_uri", REDIRECT_URI);
+    params.append("code_verifier", verifier);
+
+    try {
+        const result = await fetch("https://api.spotify.com/v1/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: params
+        });
+
+        const { access_token, refresh_token } = await result.json();
+
+        if (access_token) {
+            localStorage.setItem("spotify_access_token", access_token);
+            localStorage.setItem("spotify_refresh_token", refresh_token);
+            // Limpa os parâmetros da URL para não ficarem visíveis
+            window.history.pushState({}, document.title, window.location.pathname);
+            return access_token;
+        }
+    } catch (error) {
+        console.error("Erro ao obter token:", error);
+        return null;
+    }
+}
+
+// Funções auxiliares para o fluxo PKCE
+function generateCodeVerifier(length) {
+    let text = '';
+    let possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    for (let i = 0; i < length; i++) {
+        text += possible.charAt(Math.floor(Math.random() * possible.length));
+    }
+    return text;
+}
+
+async function generateCodeChallenge(codeVerifier) {
+    const data = new TextEncoder().encode(codeVerifier);
+    const digest = await window.crypto.subtle.digest('SHA-256', data);
+    return btoa(String.fromCharCode.apply(null, [...new Uint8Array(digest)]))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+}
+
+// ==========================================================
+// ============= RESTO DO CÓDIGO (INALTERADO) ===============
+// ==========================================================
 
 function initSpotifyPlayer(token) {
     if (spotifyPlayer) return;
@@ -70,10 +151,16 @@ function initSpotifyPlayer(token) {
         document.getElementById('deviceName').textContent = "este navegador";
     });
     spotifyPlayer.addListener("not_ready", ({ device_id }) => console.warn("Dispositivo desconectado", device_id));
-    spotifyPlayer.addListener('authentication_error', ({ message }) => {
+    spotifyPlayer.addListener('authentication_error', async ({ message }) => {
         console.error('Authentication failed:', message);
+        // Tenta renovar o token se der erro de autenticação
         localStorage.removeItem('spotify_access_token');
-        window.location.reload();
+        const refreshToken = localStorage.getItem('spotify_refresh_token');
+        if (refreshToken) {
+            // Adicionar lógica de refresh token aqui no futuro, se necessário.
+            // Por enquanto, apenas força o login novamente.
+            window.location.reload();
+        }
     });
     spotifyPlayer.addListener("player_state_changed", state => {
         if (!state) {
@@ -90,7 +177,6 @@ function initSpotifyPlayer(token) {
     setupPlayerEventListeners();
 }
 
-// --- LÓGICA PRINCIPAL DO APLICATIVO ---
 async function startApp() {
     const AIRTABLE_BASE_ID = 'appG5NOoblUmtSMVI';
     const AIRTABLE_API_KEY = 'pat5T28kjmJ4t6TQG.69bf34509e687fff6a3f76bd52e64518d6c92be8b1ee0a53bcc9f50fedcb5c70';
@@ -245,9 +331,6 @@ async function startApp() {
     initializeData(apiData);
 }
 
-// ==========================================================
-// =========== FUNÇÕES DO PLAYER SPOTIFY ====================
-// ==========================================================
 async function playContext(contextUri) {
     if (!spotifyDeviceId) { alert("Nenhum dispositivo Spotify ativo encontrado."); return; }
     if (!contextUri) { alert("Este álbum/playlist não tem um link do Spotify cadastrado."); return; }
@@ -274,7 +357,7 @@ async function searchAndPlayTrack(trackName, artistName, albumId) {
             } else { alert(`Música não encontrada no Spotify: ${trackName}`); return; }
         } catch(error) {
             console.error("Falha ao buscar música:", error);
-            if (error.message.includes('401')) { localStorage.removeItem('spotify_access_token'); handleAuthentication(); }
+            if (error.message.includes('401')) { window.location.reload(); }
             return;
         }
     }
