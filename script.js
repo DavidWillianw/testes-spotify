@@ -26,7 +26,7 @@ window.onSpotifyWebPlaybackSDKReady = () => {
 document.addEventListener('DOMContentLoaded', handleAuthentication);
 
 // ==========================================================
-// ============= NOVA LÓGICA DE AUTENTICAÇÃO (PKCE) =========
+// ============= LÓGICA DE AUTENTICAÇÃO (PKCE) ==============
 // ==========================================================
 
 async function handleAuthentication() {
@@ -34,22 +34,21 @@ async function handleAuthentication() {
     const code = params.get('code');
 
     if (code) {
-        // Passo 2: O usuário retornou do Spotify com um código. Trocamos o código por um token.
-        accessToken = await getAccessToken(code);
-        if (accessToken) {
+        const token = await getAccessToken(code);
+        if (token) {
+            accessToken = token;
             document.getElementById('loginOverlay').style.display = 'none';
             if (window.Spotify && !spotifyPlayer) {
                 initSpotifyPlayer(accessToken);
             }
             startApp();
         } else {
-            // Se falhar, limpa o localStorage e mostra o botão de login
-            localStorage.removeItem('spotify_access_token');
-            localStorage.removeItem('spotify_refresh_token');
-            redirectToAuthCodeFlow();
+            console.error("Falha ao obter o token de acesso. Tente novamente.");
+            document.getElementById('loginOverlay').style.display = 'flex';
+            document.getElementById('loginBtn').addEventListener('click', redirectToAuthCodeFlow);
+            window.history.pushState({}, document.title, window.location.pathname);
         }
     } else {
-        // Passo 1: O usuário acabou de chegar. Verificamos se já temos um token.
         accessToken = localStorage.getItem('spotify_access_token');
         if (!accessToken) {
             document.getElementById('loginOverlay').style.display = 'flex';
@@ -83,6 +82,10 @@ async function redirectToAuthCodeFlow() {
 
 async function getAccessToken(code) {
     const verifier = localStorage.getItem("spotify_verifier");
+    if (!verifier) {
+        console.error("Code Verifier não encontrado. O fluxo de autenticação foi interrompido.");
+        return null;
+    }
 
     const params = new URLSearchParams();
     params.append("client_id", CLIENT_ID);
@@ -92,28 +95,31 @@ async function getAccessToken(code) {
     params.append("code_verifier", verifier);
 
     try {
-        const result = await fetch("https://api.spotify.com/v1/search", {
+        // <<< A CORREÇÃO FINAL E CORRETA ESTÁ AQUI! >>>
+        // Usando o endpoint correto para a troca de token.
+        const result = await fetch("https://accounts.spotify.com/api/token", {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
             body: params
         });
 
-        const { access_token, refresh_token } = await result.json();
+        const data = await result.json();
+        if (!result.ok) throw new Error(data.error_description || "Erro na troca de token.");
+        
+        const { access_token, refresh_token } = data;
 
         if (access_token) {
             localStorage.setItem("spotify_access_token", access_token);
             localStorage.setItem("spotify_refresh_token", refresh_token);
-            // Limpa os parâmetros da URL para não ficarem visíveis
             window.history.pushState({}, document.title, window.location.pathname);
             return access_token;
         }
     } catch (error) {
-        console.error("Erro ao obter token:", error);
+        console.error("Erro na função getAccessToken:", error);
         return null;
     }
 }
 
-// Funções auxiliares para o fluxo PKCE
 function generateCodeVerifier(length) {
     let text = '';
     let possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -138,7 +144,6 @@ async function generateCodeChallenge(codeVerifier) {
 
 function initSpotifyPlayer(token) {
     if (spotifyPlayer) return;
-
     console.log("Inicializando o Spotify Player...");
     spotifyPlayer = new Spotify.Player({
         name: "Spotify RPG Player",
@@ -151,16 +156,10 @@ function initSpotifyPlayer(token) {
         document.getElementById('deviceName').textContent = "este navegador";
     });
     spotifyPlayer.addListener("not_ready", ({ device_id }) => console.warn("Dispositivo desconectado", device_id));
-    spotifyPlayer.addListener('authentication_error', async ({ message }) => {
+    spotifyPlayer.addListener('authentication_error', ({ message }) => {
         console.error('Authentication failed:', message);
-        // Tenta renovar o token se der erro de autenticação
         localStorage.removeItem('spotify_access_token');
-        const refreshToken = localStorage.getItem('spotify_refresh_token');
-        if (refreshToken) {
-            // Adicionar lógica de refresh token aqui no futuro, se necessário.
-            // Por enquanto, apenas força o login novamente.
-            window.location.reload();
-        }
+        window.location.reload();
     });
     spotifyPlayer.addListener("player_state_changed", state => {
         if (!state) {
