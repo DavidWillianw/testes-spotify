@@ -1,5 +1,5 @@
 // ==========================================================
-// ============= CONFIGURAÇÃO SPOTIFY =======================
+// ============= CONFIGURAÇÃO SPOTIFY teste 20 =======================
 // ==========================================================
 const CLIENT_ID = "4c1a5e5e8deb42c19d9b1b948717ea28"; // SEU CLIENT ID
 const REDIRECT_URI = "https://davidwillianw.github.io/testes-spotify/"; 
@@ -42,7 +42,7 @@ function handleAuthentication() {
     if (!accessToken) {
         document.getElementById('loginOverlay').style.display = 'flex';
         document.getElementById('loginBtn').addEventListener('click', () => {
-            // <<< A CORREÇÃO ESTÁ AQUI! Esta é a URL de autorização correta.
+            // <<< A CORREÇÃO FINAL ESTÁ AQUI! Esta é a URL de autorização correta.
             const authUrl = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${SCOPES.join('%20')}`;
             window.location.href = authUrl;
         });
