@@ -2,7 +2,7 @@
 // ============= CONFIGURAÇÃO SPOTIFY =======================
 // ==========================================================
 const CLIENT_ID = "4c1a5e5e8deb42c19d9b1b948717ea28"; // SEU CLIENT ID
-const REDIRECT_URI = window.location.origin + window.location.pathname;
+const REDIRECT_URI = "https://davidwillianw.github.io/testes-spotify/"; // <<< CORREÇÃO: Usar o URI completo e exato
 const SCOPES = [
     "streaming", "user-read-email", "user-read-private",
     "user-read-playback-state", "user-modify-playback-state", "user-read-currently-playing"
@@ -16,13 +16,10 @@ let currentContextUri = null;
 const spotifyUriCache = new Map();
 let progressInterval = null;
 
-// <<< CORREÇÃO 1: Definir a função globalmente
-// Esta função será chamada pelo SDK do Spotify assim que ele estiver pronto.
+// <<< CORREÇÃO: Definir a função globalmente para que o SDK sempre a encontre
 window.onSpotifyWebPlaybackSDKReady = () => {
-    // O SDK está pronto. Agora, só precisamos do token de acesso.
-    // A função handleAuthentication() vai cuidar de chamar initSpotifyPlayer quando tiver o token.
-    console.log("Spotify SDK está pronto.");
-    // Se já tivermos um token, podemos tentar inicializar o player.
+    console.log("Spotify SDK está pronto para ser usado.");
+    // A função handleAuthentication() vai chamar initSpotifyPlayer quando tiver o token.
     if (accessToken) {
         initSpotifyPlayer(accessToken);
     }
@@ -52,26 +49,19 @@ function handleAuthentication() {
         });
     } else {
         document.getElementById('loginOverlay').style.display = 'none';
-        
-        // <<< CORREÇÃO 2: Não definimos mais a função aqui.
-        // Em vez disso, tentamos iniciar o player, pois agora temos o token.
-        // A função global onSpotifyWebPlaybackSDKReady também pode chamar initSpotifyPlayer.
-        // A verificação interna em initSpotifyPlayer garante que ele só rode uma vez.
-        if (window.Spotify) { // Verifica se o SDK já carregou
+        // Se o SDK já carregou (window.Spotify existe), inicializamos o player.
+        // Se não, a função onSpotifyWebPlaybackSDKReady cuidará disso.
+        if (window.Spotify && !spotifyPlayer) {
              initSpotifyPlayer(accessToken);
         }
-        
         startApp();
     }
 }
 
 function initSpotifyPlayer(token) {
-    // <<< CORREÇÃO 3: Adicionar uma "guarda" para evitar inicializar o player mais de uma vez.
-    if (spotifyPlayer) {
-        return;
-    }
-    console.log("Inicializando o Spotify Player com o token.");
+    if (spotifyPlayer) return; // Evita inicializar mais de uma vez
 
+    console.log("Inicializando o Spotify Player...");
     spotifyPlayer = new Spotify.Player({
         name: "Spotify RPG Player",
         getOAuthToken: cb => cb(token),
@@ -86,7 +76,7 @@ function initSpotifyPlayer(token) {
     spotifyPlayer.addListener('authentication_error', ({ message }) => {
         console.error('Authentication failed:', message);
         localStorage.removeItem('spotify_access_token');
-        window.location.reload(); // Recarrega a página para forçar o login
+        window.location.reload();
     });
     spotifyPlayer.addListener("player_state_changed", state => {
         if (!state) {
@@ -105,14 +95,11 @@ function initSpotifyPlayer(token) {
 
 // --- LÓGICA PRINCIPAL DO APLICATIVO ---
 async function startApp() {
-    // --- CONFIGURAÇÃO E VARIÁVEIS GLOBAIS (AIRTABLE) ---
     const AIRTABLE_BASE_ID = 'appG5NOoblUmtSMVI';
     const AIRTABLE_API_KEY = 'pat5T28kjmJ4t6TQG.69bf34509e687fff6a3f76bd52e64518d6c92be8b1ee0a53bcc9f50fedcb5c70';
     let db = { artists: [], albums: [], songs: [] };
     let rawData = { albums: [], singles: [] };
     const allViews = document.querySelectorAll('.page-view');
-    const searchInput = document.getElementById('searchInput');
-    const allNavs = [...document.querySelectorAll('.nav-tab'), ...document.querySelectorAll('.bottom-nav-item')];
     let activeArtist = null;
     let viewHistory = ['mainView'];
 
@@ -130,9 +117,7 @@ async function startApp() {
             musicasData.records.forEach(record => {
                 musicasMap.set(record.id, {
                     recordId: record.id, title: record.fields['Nome da Faixa'],
-                    duration: record.fields['Duração'] ? new Date(record.fields['Duração'] * 1000).toISOString().substr(14, 5) : "00:00",
-                    trackNumber: record.fields['Nº da Faixa'] || 0, streams: record.fields['Streams'] || 0,
-                    weeklyStreams: record.fields['Streams Semanais'] || 0, previousPosition: record.fields['Posição Anterior (Chart)'],
+                    trackNumber: record.fields['Nº da Faixa'] || 0,
                 });
             });
             const artistsMapById = new Map();
@@ -161,8 +146,6 @@ async function startApp() {
     }
     
     // --- FUNÇÕES DE RENDERIZAÇÃO E UI ---
-    // (A partir daqui, o código do seu app continua o mesmo, sem alterações)
-    
     const initializeData = (apiData) => {
         const { artists: artistsList, albums: albumsData, singles: singlesData } = apiData;
         const artistsMap = new Map();
@@ -195,9 +178,8 @@ async function startApp() {
         document.getElementById('albumDetailBg').style.backgroundImage = `url(${album.imageUrl})`;
         document.getElementById('albumDetailCover').src = album.imageUrl;
         document.getElementById('albumDetailTitle').textContent = album.title;
-        const totalMinutes = Math.floor((album.tracks || []).reduce((total, track) => total + (parseInt((track.duration || "0:0").split(':')[0], 10) * 60) + parseInt((track.duration || "0:0").split(':')[1], 10), 0) / 60);
-        document.getElementById('albumDetailInfo').innerHTML = `<strong class="clickable-artist" data-artist-name="${album.artist}">${album.artist}</strong> • ${new Date(album.releaseDate || '2024-01-01').getFullYear()} • ${(album.tracks || []).length} músicas, ${totalMinutes} min`;
-        const sortedTracks = [...(album.tracks || [])].map(track => db.songs.find(s => s.recordId === track.recordId) || track).sort((a, b) => (a.trackNumber || 0) - (b.trackNumber || 0));
+        document.getElementById('albumDetailInfo').innerHTML = `<strong class="clickable-artist" data-artist-name="${album.artist}">${album.artist}</strong> • ${new Date(album.releaseDate || '2024-01-01').getFullYear()}`;
+        const sortedTracks = [...(album.tracks || [])].sort((a, b) => (a.trackNumber || 0) - (b.trackNumber || 0));
         document.getElementById('albumTracklist').innerHTML = sortedTracks.map(track =>
             `<div class="track-row" data-album-id="${album.recordId}">
                 <div class="track-number">${track.trackNumber}</div>
@@ -219,10 +201,15 @@ async function startApp() {
         activeArtist = artist;
         document.getElementById('detailBg').style.backgroundImage = `url(${artist.img})`;
         document.getElementById('detailName').textContent = artist.name;
-        const allSongsByArtist = db.songs.filter(s => s.artist === artistName);
-        const topSongs = allSongsByArtist.sort((a, b) => (b.streams || 0) - (a.streams || 0)).slice(0, 5);
-        document.getElementById('popularSongsList').innerHTML = topSongs.map((song, index) => `<div class="song-row" data-album-id="${song.albumId}"><div style="color: var(--text-secondary);">${index + 1}</div><div class="song-row-info"><img class="song-row-cover" src="${song.cover}" alt="${song.title}"><div class="song-row-title">${song.title}</div></div></div>`).join('');
-        const renderHorizontalList = (containerId, items) => { document.getElementById(containerId).innerHTML = items.map(item => `<div class="album-card" data-album-id="${item.recordId}"><img src="${item.imageUrl}" alt="${item.title}"><div class="album-title">${item.title}</div><div class="album-year">${new Date(item.releaseDate || '2024-01-01').getFullYear()}</div></div>`).join(''); };
+        const renderHorizontalList = (containerId, items) => { 
+            document.getElementById(containerId).innerHTML = items.map(item => 
+                `<div class="album-card" data-album-id="${item.recordId}">
+                    <img src="${item.imageUrl}" alt="${item.title}">
+                    <div class="album-title">${item.title}</div>
+                    <div class="album-year">${new Date(item.releaseDate || '2024-01-01').getFullYear()}</div>
+                </div>`
+            ).join(''); 
+        };
         renderHorizontalList('albumsList', artist.albums);
         renderHorizontalList('singlesList', artist.singles);
         switchView('artistDetail');
@@ -239,17 +226,21 @@ async function startApp() {
         const target = e.target;
         const mainPlayBtn = target.closest('.main-play-btn');
         if (mainPlayBtn && currentContextUri) { await playContext(currentContextUri); return; }
+        
         const songRow = target.closest('.song-row, .chart-item, .track-row');
         if (songRow && accessToken) {
             let title, artist, albumId = songRow.dataset.albumId;
-            if (songRow.querySelector('.chart-title')) { title = song.querySelector('.chart-title').textContent; artist = song.querySelector('.chart-artist').textContent; } 
-            else if (songRow.querySelector('.song-row-title')) { title = song.querySelector('.song-row-title').textContent; if (activeArtist) artist = activeArtist.name; } 
-            else if (songRow.querySelector('.track-title')) { title = song.querySelector('.track-title').textContent; artist = song.querySelector('.track-artist').textContent; }
+            // <<< CORREÇÃO AQUI: Usar songRow em vez de song
+            if (songRow.querySelector('.chart-title')) { title = songRow.querySelector('.chart-title').textContent; artist = songRow.querySelector('.chart-artist').textContent; } 
+            else if (songRow.querySelector('.song-row-title')) { title = songRow.querySelector('.song-row-title').textContent; if (activeArtist) artist = activeArtist.name; } 
+            else if (songRow.querySelector('.track-title')) { title = songRow.querySelector('.track-title').textContent; artist = songRow.querySelector('.track-artist').textContent; }
             if (title && artist) { await searchAndPlayTrack(title, artist, albumId); }
             return;
         }
+        
         const albumCard = target.closest('[data-album-id]');
         if (albumCard) { openAlbumDetail(albumCard.dataset.albumId); return; }
+        
         const clickableArtist = target.closest('.clickable-artist, .artist-card');
         if (clickableArtist) { openArtistDetail(clickableArtist.dataset.artistName); return; }
     });
@@ -260,12 +251,6 @@ async function startApp() {
     const apiData = await loadAllData();
     console.log("Inicializando a interface...");
     initializeData(apiData);
-    allNavs.forEach(nav => nav.addEventListener('click', (e) => {
-        const tabId = e.currentTarget.dataset.tab;
-        if (viewHistory[viewHistory.length - 1] !== 'mainView') { switchView('mainView'); viewHistory = ['mainView']; }
-        document.querySelectorAll('.content-section').forEach(s => s.classList.toggle('active', s.id === tabId));
-        allNavs.forEach(n => n.classList.toggle('active', n.dataset.tab === tabId));
-    }));
 }
 
 // ==========================================================
