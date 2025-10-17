@@ -1,7 +1,7 @@
 // ==========================================================
 // ============= CONFIGURAÇÃO SPOTIFY (NOVO) ================
 // ==========================================================
-const CLIENT_ID = "SEU_CLIENT_ID_AQUI"; // <-- COLOQUE SEU CLIENT ID AQUI!
+const CLIENT_ID = "4c1a5e5e8deb42c19d9b1b948717ea28"; // <-- COLOQUE SEU CLIENT ID AQUI!
 const REDIRECT_URI = window.location.origin + window.location.pathname;
 const SCOPES = [
     "streaming",
