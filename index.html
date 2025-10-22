@@ -17,19 +17,6 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <div id="loginOverlay">
-      <div class="login-content">
-        <h2>Conecte-se ao Spotify</h2>
-        <p>
-          Para ouvir as músicas do jogo, você precisa conectar sua conta Premium
-          do Spotify.
-        </p>
-        <button id="loginBtn" class="btn-primary">
-          <i class="fab fa-spotify"></i> Conectar com Spotify
-        </button>
-      </div>
-    </div>
-
     <div id="mainView" class="page-view">
       <header class="topbar">
         <div class="search-bar">
@@ -50,7 +37,7 @@
             Top Álbuns
           </button>
           <button class="nav-tab" data-tab="artistsSection">Artistas</button>
-        </nav>
+          </nav>
       </header>
 
       <main class="main-container">
@@ -61,14 +48,14 @@
         <section id="musicChartsSection" class="content-section">
           <div class="chart-header">
             <h3>🔥 Top Músicas da Semana</h3>
-            <p id="musicCountdownTimer"></p>
+            <p>Atualiza em <span id="musicCountdownTimer"></span></p>
           </div>
           <div id="musicChartsList" class="chart-list"></div>
         </section>
         <section id="albumChartsSection" class="content-section">
           <div class="chart-header">
             <h3>💿 Top Álbuns da Semana</h3>
-            <p id="albumCountdownTimer"></p>
+            <p>Atualiza em <span id="albumCountdownTimer"></span></p>
           </div>
           <div id="albumChartsList" class="chart-list"></div>
         </section>
@@ -89,22 +76,24 @@
 
     <div id="artistDetail" class="page-view hidden">
       <button class="back-btn"><i class="fas fa-chevron-left"></i></button>
+
       <header class="artist-header">
         <div class="header-bg" id="detailBg"></div>
         <div class="header-overlay"></div>
       </header>
+
       <main class="page-detail-body">
         <div class="artist-header-content">
           <h1 id="detailName"></h1>
           <div class="verified-artist">
             <i class="fas fa-check-circle"></i> Artista Verificado
           </div>
-          <div id="artistTotalStreams" class="artist-stats"></div>
           <div class="page-actions">
             <button class="main-play-btn"><i class="fas fa-play"></i></button>
             <button class="follow-btn">SEGUIR</button>
           </div>
         </div>
+
         <section class="popular-songs-list">
           <h2 class="section-title">Populares</h2>
           <div id="popularSongsList"></div>
@@ -168,37 +157,9 @@
       <button class="bottom-nav-item" data-tab="artistsSection">
         <i class="fas fa-users"></i><span>Artistas</span>
       </button>
-    </nav>
-    
-    <div id="spotifyPlayerBar" class="player-bar">
-        <div class="player-track-info">
-            <img id="playerCover" src="https://i.imgur.com/AD3MbBi.png" alt="Capa do Álbum">
-            <div>
-                <div id="playerTitle" class="clickable">Música</div>
-                <div id="playerArtist">Artista</div>
-            </div>
-        </div>
-        <div class="player-controls">
-            <div class="player-control-buttons">
-                <button id="prevBtn" class="player-icon-btn"><i class="fas fa-step-backward"></i></button>
-                <button id="playPauseBtn" class="player-play-btn"><i class="fas fa-play"></i></button>
-                <button id="nextBtn" class="player-icon-btn"><i class="fas fa-step-forward"></i></button>
-            </div>
-            <div class="player-progress-bar">
-                <span id="currentTime">0:00</span>
-                <div id="progressContainer" class="progress-container">
-                    <div id="progressBar" class="progress-bar-fill"></div>
-                </div>
-                <span id="totalTime">0:00</span>
-            </div>
-        </div>
-        <div class="player-extra-controls">
-            <i class="fas fa-desktop"></i>
-            <span>Ouvindo em <strong id="deviceName">...</strong></span>
-        </div>
-    </div>
+      </nav>
 
-    <script src="https://sdk.scdn.co/spotify-player.js"></script>
+    <script src="open.spotify.com/playlist"></script>
     <script src="script.js"></script>
   </body>
 </html>
