@@ -69,15 +69,15 @@ body {
   margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); transition: transform 0.3s ease;
 }
 .artist-card:hover img { transform: scale(1.05); }
-.artist-card .artist-card-name { /* CORRIGIDO: JS usa <p> */
+.artist-card .artist-card-name {
   font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden;
   text-overflow: ellipsis; color: var(--text-primary);
 }
-.artist-card .artist-card-type { /* CORRIGIDO: JS usa <span> */
+.artist-card .artist-card-type {
   font-size: 12px; color: var(--text-secondary);
 }
 
-.album-card-grid { cursor: pointer; } /* Usado em algum lugar? Parece ser .scroll-item ou .artist-card */
+.album-card-grid { cursor: pointer; }
 .album-card-grid img {
   width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 8px;
   margin-bottom: 8px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
@@ -111,7 +111,7 @@ body {
     min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .chart-item .chart-item-title {
-    font-size: 14px; font-weight: 600; display: block; /* Para garantir quebra se necessário */
+    font-size: 14px; font-weight: 600; display: block;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .chart-item .chart-item-artist {
@@ -159,7 +159,7 @@ body {
 #detailName { font-size: 48px; font-weight: 900; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5); margin: 0; }
 #albumDetailCover {
   width: 180px; height: 180px; object-fit: cover; border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); margin: 0 auto 16px; /* Centraliza a capa */
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); margin: 0 auto 16px;
 }
 #albumDetailTitle { font-size: 24px; font-weight: 800; }
 #albumDetailInfo { color: var(--text-secondary); font-size: 14px; margin-top: 8px; }
@@ -216,12 +216,12 @@ body {
     font-size: 12px;
     color: var(--text-secondary);
     margin-top: 2px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; /* Evita quebra de linha */
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .track-row:last-child { border-bottom: none; }
 .track-title {
     font-weight: 500;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; /* Evita quebra de linha */
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .track-duration { color: var(--text-secondary); font-size: 14px; }
 .full-page-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
@@ -301,14 +301,12 @@ body {
   color: var(--text-primary); padding: 14px; border-radius: 6px; font-size: 14px;
   font-family: "Montserrat", sans-serif;
 }
-/* Estilo específico para input date */
 .studio-form-group input[type="date"] {
-  appearance: none; /* Remove aparência padrão */
+  appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
-  color-scheme: dark; /* Adapta o calendário ao tema escuro */
+  color-scheme: dark;
 }
-/* Estilo para placeholder */
 .studio-form-group input::placeholder { color: #757575; }
 
 .submit-btn {
@@ -325,35 +323,35 @@ body {
 .track-main-row { display: flex; align-items: center; width: 100%; gap: 10px;}
 .drag-handle { cursor: grab; color: var(--text-secondary); padding: 0 5px; }
 .drag-handle:active { cursor: grabbing; }
-.track-inputs { flex-grow: 1; display: flex; gap: 10px; align-items: center; /* Alinha verticalmente */ }
+.track-inputs { flex-grow: 1; display: flex; gap: 10px; align-items: center; }
 .track-inputs .track-number { font-size: 14px; font-weight: 700; color: var(--text-secondary); width: 20px; text-align: right; flex-shrink: 0; }
 .track-inputs input[type="text"] {
     padding: 10px; font-size: 12px; margin: 0;
     background-color: var(--background-primary); border: 1px solid #535353; border-radius: 4px; color: var(--text-primary);
-    flex-grow: 1; /* Permite que o nome cresça */
-    width: auto; /* Reseta width fixo */
-    min-width: 0; /* Permite encolher */
+    flex-grow: 1;
+    width: auto;
+    min-width: 0;
 }
 .track-inputs input.track-duration-input {
-    flex-grow: 0; /* Não cresce */
-    flex-shrink: 0; /* Não encolhe além do necessário */
-    width: 70px; /* Largura fixa menor */
-    text-align: center; /* Centraliza o texto MM:SS */
+    flex-grow: 0;
+    flex-shrink: 0;
+    width: 70px;
+    text-align: center;
 }
 .delete-track-btn { background: none; border: none; color: var(--trend-down-red); font-size: 16px; cursor: pointer; padding: 5px; }
 .track-list-item.sortable-ghost { opacity: 0.4; background: #3f3f3f; }
-.feat-target-hidden { display: none; } /* Elemento auxiliar para o modal */
+.feat-target-hidden { display: none; }
 
 /* Seção de Feat (dentro de .track-list-item ou .feat-section do single) */
-.feat-section { margin-top: 10px; padding-left: 25px; /* Alinhar com inputs */ }
+.feat-section { margin-top: 10px; padding-left: 25px; }
 .feat-section label { font-size: 11px; font-weight: 600; color: var(--spotify-green); margin-bottom: 5px; text-transform: uppercase; display: block; }
 .feat-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .feat-tag {
     background-color: var(--background-primary); color: var(--text-secondary);
     padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;
-    display: inline-flex; align-items: center; gap: 5px; cursor: pointer; /* Indica que é clicável */
+    display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
 }
-.feat-tag:hover { color: var(--text-primary); } /* Feedback visual */
+.feat-tag:hover { color: var(--text-primary); }
 .add-feat-btn { font-size: 11px; padding: 4px 6px; }
 
 
@@ -384,15 +382,15 @@ body {
 @media (min-width: 768px) {
   body { display: grid; grid-template-columns: 240px 1fr; grid-template-rows: auto 1fr; height: 100vh; }
   .page-view { grid-column: 2 / 3; grid-row: 1 / span 2; overflow-y: auto; }
-  .topbar { position: sticky; /* Muda para sticky dentro da coluna */ grid-column: 2 / 3; grid-row: 1 / 2; padding: 16px 32px; z-index: 100; /* Garante que fique acima */ }
-  .main-container { padding: 24px 32px 32px; /* Ajuste no padding superior */ grid-column: 2 / 3; grid-row: 2 / 3; }
+  .topbar { position: sticky; grid-column: 2 / 3; grid-row: 1 / 2; padding: 16px 32px; z-index: 100; }
+  .main-container { padding: 24px 32px 32px; grid-column: 2 / 3; grid-row: 2 / 3; }
   .nav-tabs { justify-content: center; overflow-x: visible; }
   .bottom-nav {
-    position: static; /* Remove fixed */ grid-column: 1 / 2; grid-row: 1 / span 2;
+    position: static; grid-column: 1 / 2; grid-row: 1 / span 2;
     background-color: #000;
     flex-direction: column; justify-content: flex-start; align-items: flex-start;
     padding: 24px; gap: 8px; border-top: none; border-right: 1px solid var(--background-tertiary);
-    height: 100%; /* Ocupa toda a altura */
+    height: 100%;
   }
   .bottom-nav-item {
     display: flex; align-items: center; gap: 20px; padding: 12px 16px; width: 100%;
@@ -401,7 +399,7 @@ body {
   .bottom-nav-item.active { color: var(--text-primary); background-color: var(--background-tertiary); }
   .bottom-nav-item:hover { color: var(--text-primary); }
   .bottom-nav-item span { display: inline; font-size: 14px; }
-  .back-btn { left: 264px; } /* Ajusta posição por causa da barra lateral */
+  .back-btn { left: 264px; }
   .page-detail-body { padding: 0 32px 32px; max-width: 1400px; margin: 0 auto; }
   #detailName { font-size: 80px; }
   .artist-header-content { margin-top: -100px; padding: 0 32px; }
@@ -425,7 +423,7 @@ body {
   .track-inputs input.track-duration-input {
       width: 100%; /* Ocupa a coluna do grid */
   }
-  .track-list-item .track-number { line-height: inherit; } /* Reset align vertical */
+  .track-list-item .track-number { line-height: inherit; }
   .feat-section { padding-left: 45px; }
 
 }
