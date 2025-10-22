@@ -11,8 +11,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- ELEMENTOS DO DOM ---
     let allViews, searchInput, studioView, loginPrompt, loggedInInfo, playerSelect,
         loginButton, logoutButton, studioLaunchWrapper, studioTabs, studioForms,
-        newSingleForm, singleArtistSelect, singleReleaseDateInput, // NOVO
-        newAlbumForm, albumArtistSelect, albumReleaseDateInput, // NOVO
+        newSingleForm, singleArtistSelect, singleReleaseDateInput,
+        newAlbumForm, albumArtistSelect, albumReleaseDateInput,
         addTrackButton, albumTracklistEditor, featModal, featArtistSelect,
         featTypeSelect, confirmFeatBtn, cancelFeatBtn;
 
@@ -35,10 +35,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         studioForms = document.querySelectorAll('.studio-form-content');
         newSingleForm = document.getElementById('newSingleForm');
         singleArtistSelect = document.getElementById('singleArtistSelect');
-        singleReleaseDateInput = document.getElementById('singleReleaseDate'); // NOVO
+        singleReleaseDateInput = document.getElementById('singleReleaseDate');
         newAlbumForm = document.getElementById('newAlbumForm');
         albumArtistSelect = document.getElementById('albumArtistSelect');
-        albumReleaseDateInput = document.getElementById('albumReleaseDate'); // NOVO
+        albumReleaseDateInput = document.getElementById('albumReleaseDate');
         addTrackButton = document.getElementById('addTrackButton');
         albumTracklistEditor = document.getElementById('albumTracklistEditor');
         featModal = document.getElementById('featModal');
@@ -47,14 +47,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         confirmFeatBtn = document.getElementById('confirmFeatBtn');
         cancelFeatBtn = document.getElementById('cancelFeatBtn');
 
-        // Adiciona os novos campos de data à verificação
         if (!studioView || !loginPrompt || !playerSelect || !newSingleForm || !newAlbumForm || !featModal || !allViews || allViews.length === 0 || !singleReleaseDateInput || !albumReleaseDateInput) {
             console.error("ERRO CRÍTICO: Elementos essenciais do HTML não foram encontrados! Verifique IDs: studioView, loginPrompt, playerSelect, newSingleForm, newAlbumForm, featModal, .page-view, singleReleaseDate, albumReleaseDate");
             document.body.innerHTML = '<div style="color: red; padding: 20px; text-align: center;"><h1>Erro de Interface</h1><p>Elementos essenciais da página não foram encontrados. Verifique o HTML e os IDs.</p></div>';
             return false;
         }
 
-        // Define a data padrão como hoje nos inputs
         const today = new Date().toISOString().split('T')[0];
         singleReleaseDateInput.value = today;
         albumReleaseDateInput.value = today;
@@ -71,11 +69,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         let offset = null;
 
         do {
-            const fetchUrl = offset ? `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}offset=${offset}` : baseUrl; // Corrigido para adicionar offset corretamente
+            const fetchUrl = offset ? `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}offset=${offset}` : baseUrl;
 
             const response = await fetch(fetchUrl, fetchOptions);
             if (!response.ok) {
-                const errorText = await response.text(); // Pega mais detalhes do erro
+                const errorText = await response.text();
                 console.error(`Falha ao carregar ${fetchUrl}: ${response.status} - ${errorText}`);
                 throw new Error(`Airtable fetch failed for ${baseUrl}`);
             }
@@ -883,10 +881,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
             if (!response.ok) {
                 const errorData = await response.json();
-                console.error(`Erro ao criar registro em ${tableName}:`, errorData);
+                console.error(`Erro ao criar registro em ${tableName}:`, JSON.stringify(errorData, null, 2)); // Log detalhado do erro
                 throw new Error(`Airtable error: ${response.status}`);
             }
-            return await response.json(); // Retorna o registro criado
+            return await response.json();
         } catch (error) {
             console.error("Falha na requisição para createAirtableRecord:", error);
             return null;
@@ -913,12 +911,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             const artistId = singleArtistSelect.value;
             const singleTitle = document.getElementById('singleTitle').value;
             const coverUrl = document.getElementById('singleCoverUrl').value;
-            const releaseDate = singleReleaseDateInput.value; // Pega a data
+            const releaseDate = singleReleaseDateInput.value;
             const trackName = document.getElementById('trackName').value;
             const trackDurationStr = document.getElementById('trackDuration').value;
             const trackDurationSec = parseDurationToSeconds(trackDurationStr);
 
-             if (!artistId || !singleTitle || !coverUrl || !releaseDate || !trackName || !trackDurationStr) { // Verifica data
+             if (!artistId || !singleTitle || !coverUrl || !releaseDate || !trackName || !trackDurationStr) {
                 alert("Por favor, preencha todos os campos obrigatórios do single.");
                 throw new Error("Campos obrigatórios do single faltando.");
             }
@@ -928,15 +926,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 "Nome do Single/EP": singleTitle,
                 "Artista": [artistId],
                 "Capa": [{ "url": coverUrl }],
-                "Data de Lançamento": releaseDate // Usa a data selecionada
+                "Data de Lançamento": releaseDate
             });
 
-            // CORREÇÃO BUG SINGLE: Verifica se o registro foi criado e pega o ID
+            // Pega o ID do registro criado
             if (!singleRecordResponse || !singleRecordResponse.id) {
-                throw new Error("Falha ao criar o registro do Single.");
+                throw new Error("Falha ao criar o registro do Single/EP.");
             }
-            const singleRecordId = singleRecordResponse.id; // <-- Pega o ID aqui
+            const singleRecordId = singleRecordResponse.id;
 
+            // Processa feats para nome da faixa e artistas
             const featTags = document.querySelectorAll('#singleFeatList .feat-tag');
             let finalTrackName = trackName;
             let finalArtistIds = [artistId];
@@ -954,38 +953,42 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 if (collabType === "Feat.") {
                     finalTrackName = `${trackName} (feat. ${featArtistNames.join(', ')})`;
-                    finalArtistIds = [artistId];
+                    finalArtistIds = [artistId]; // Apenas o artista principal na lista de artistas
                 } else if (collabType === "Dueto/Grupo") {
                     finalTrackName = trackName;
-                    finalArtistIds = [artistId, ...featArtistIds];
+                    finalArtistIds = [artistId, ...featArtistIds]; // Todos os artistas na lista
                 }
             }
 
+            // Cria o objeto de campos para a Música
             const musicRecordFields = {
                 "Nome da Faixa": finalTrackName,
                 "Artista": finalArtistIds,
                 "Duração": trackDurationSec,
                 "Nº da Faixa": 1,
-                "Singles e EPs": [singleRecordId] // <-- CORREÇÃO BUG SINGLE: Usa o ID correto
+                "Singles e EPs": [singleRecordId] // Linka ao Single/EP criado
             };
 
+            // Adiciona o tipo de colaboração se existir
             if (collabType) {
                 musicRecordFields["Tipo de Colaboração"] = collabType;
             }
 
-            // Cria o registro da Música, linkando ao Single/EP
+            // Log para depuração
+            console.log('Enviando para Músicas (Single):', JSON.stringify(musicRecordFields, null, 2));
+
+            // Cria o registro da Música
             const musicRecordResponse = await createAirtableRecord('Músicas', musicRecordFields);
 
             if (!musicRecordResponse || !musicRecordResponse.id) {
-                 // Opcional: Tentar deletar o Single/EP se a música falhar (rollback)
                  console.error("Single/EP criado, mas falha ao criar a música vinculada.");
+                 // Opcional: Implementar rollback (deletar o single/EP)
                  throw new Error("Falha ao criar o registro da música.");
             }
 
             alert("Single lançado com sucesso!");
             newSingleForm.reset();
-            // Reseta a data para hoje
-            singleReleaseDateInput.value = new Date().toISOString().split('T')[0];
+            singleReleaseDateInput.value = new Date().toISOString().split('T')[0]; // Reseta data
             document.getElementById('singleFeatList').innerHTML = '';
             await refreshAllData();
 
@@ -997,6 +1000,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             submitBtn.textContent = 'Lançar Single';
         }
     }
+
 
     function initAlbumForm() {
         addNewTrackInput();
@@ -1061,6 +1065,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const results = [];
         for (const chunk of chunks) {
+             // Log para depuração do lote
+             console.log(`Enviando lote para ${tableName}:`, JSON.stringify(chunk.map(fields => ({ fields })), null, 2));
             try {
                 const response = await fetch(url, {
                     method: 'POST',
@@ -1073,7 +1079,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 if (!response.ok) {
                     const errorData = await response.json();
-                    console.error(`Erro ao criar lote em ${tableName}:`, errorData);
+                    console.error(`Erro ao criar lote em ${tableName}:`, JSON.stringify(errorData, null, 2)); // Log detalhado do erro
                     throw new Error(`Airtable batch error: ${response.status}`);
                 }
                 const data = await response.json();
@@ -1097,9 +1103,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             const artistId = albumArtistSelect.value;
             const albumTitle = document.getElementById('albumTitle').value;
             const coverUrl = document.getElementById('albumCoverUrl').value;
-            const releaseDate = albumReleaseDateInput.value; // Pega a data
+            const releaseDate = albumReleaseDateInput.value;
 
-             if (!artistId || !albumTitle || !coverUrl || !releaseDate) { // Verifica data
+             if (!artistId || !albumTitle || !coverUrl || !releaseDate) {
                 alert("Por favor, preencha Artista, Título, URL da Capa e Data do álbum/EP.");
                 throw new Error("Campos obrigatórios do álbum faltando.");
             }
@@ -1179,33 +1185,32 @@ document.addEventListener('DOMContentLoaded', async () => {
                 [nameField]: albumTitle,
                 "Artista": [artistId],
                 [coverField]: [{ "url": coverUrl }],
-                "Data de Lançamento": releaseDate // Usa a data selecionada
+                "Data de Lançamento": releaseDate
             });
 
             if (!releaseRecordResponse || !releaseRecordResponse.id) {
                 throw new Error("Falha ao criar o registro do álbum/EP.");
             }
-            const releaseRecordId = releaseRecordResponse.id; // Pega o ID
+            const releaseRecordId = releaseRecordResponse.id;
 
             const releaseLinkField = isAlbum ? 'Álbuns' : 'Singles e EPs';
             musicRecordsToCreate.forEach(record => {
-                record[releaseLinkField] = [releaseRecordId]; // Usa o ID correto
+                record[releaseLinkField] = [releaseRecordId];
             });
 
             const createdSongs = await batchCreateAirtableRecords('Músicas', musicRecordsToCreate);
 
             if (!createdSongs || createdSongs.length !== musicRecordsToCreate.length) {
-                // TODO: Adicionar lógica para deletar o álbum/EP se as músicas falharem (rollback)
                 console.error("Álbum/EP criado, mas falha ao criar as músicas vinculadas.");
+                // Opcional: Implementar rollback (deletar o álbum/EP)
                 throw new Error("Falha ao criar as faixas no Airtable.");
             }
 
             alert("Álbum/EP lançado com sucesso!");
             newAlbumForm.reset();
-            // Reseta a data para hoje
-            albumReleaseDateInput.value = new Date().toISOString().split('T')[0];
-            albumTracklistEditor.innerHTML = ''; // Limpa a tracklist
-            initAlbumForm(); // Adiciona a primeira faixa vazia de volta
+            albumReleaseDateInput.value = new Date().toISOString().split('T')[0]; // Reseta data
+            albumTracklistEditor.innerHTML = '';
+            initAlbumForm();
             await refreshAllData();
 
         } catch (error) {
