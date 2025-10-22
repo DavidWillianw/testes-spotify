@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     let db = { artists: [], albums: [], songs: [], players: [] };
     let currentPlayer = null;
     let albumTracklistSortable = null;
+    let activeArtist = null; // <-- BUG CORRIGIDO: Esta linha estava faltando
 
     const allViews = document.querySelectorAll('.page-view');
     const searchInput = document.getElementById('searchInput');
@@ -91,7 +92,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 musicasMap.set(record.id, {
                     title: record.fields['Nome da Faixa'],
                     duration: record.fields['Duração'] ? new Date(record.fields['Duração'] * 1000).toISOString().substr(14, 5) : "00:00",
-                    trackNumber: record.fields['Nº da Faixa'] || 0
+                    trackNumber: record.fields['Nº da Faixa'] || 0,
+                    // Adiciona duração em segundos para a lógica do álbum
+                    durationSeconds: record.fields['Duração'] || 0 
                 });
             });
 
@@ -104,7 +107,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return records.map(record => {
                     const fields = record.fields;
                     const trackIds = fields['Músicas'] || [];
+                    
                     const tracks = trackIds.map(trackId => musicasMap.get(trackId)).filter(Boolean);
+                    
+                    // Calcula a duração total
+                    const totalDurationSeconds = tracks.reduce((total, track) => {
+                        return total + track.durationSeconds;
+                    }, 0);
+                    
                     const artistId = (fields['Artista'] && fields['Artista'][0]) || null;
                     const artistName = artistId ? artistsMapById.get(artistId) : "Artista Desconhecido";
 
@@ -115,7 +125,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         metascore: fields['Metascore'] || 0,
                         imageUrl: (fields['Capa do Álbum'] && fields['Capa do Álbum'][0]?.url) || (fields['Capa'] && fields['Capa'][0]?.url) || 'https://i.imgur.com/AD3MbBi.png',
                         releaseDate: fields['Data de Lançamento'] || '2024-01-01',
-                        tracks: tracks
+                        tracks: tracks,
+                        totalDurationSeconds: totalDurationSeconds // Salva o total
                     };
                 });
             };
@@ -175,13 +186,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const processReleases = (releaseData, type) => {
             (releaseData || []).forEach(item => {
+                // A duração total já é calculada em `formatReleases`
+                // e já está no `item.totalDurationSeconds`
+                
+                // Adiciona músicas ao db.songs
                 if (item.tracks && item.tracks.length > 0) {
-                    item.totalDurationSeconds = item.tracks.reduce((total, track) => {
-                        const parts = (track.duration || "0:0").split(':');
-                        const seconds = (parseInt(parts[0], 10) * 60) + parseInt(parts[1], 10);
-                        return total + seconds;
-                    }, 0);
-
                     item.tracks.forEach(track => {
                         db.songs.push({
                             ...track,
@@ -204,13 +213,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         db.songs = []; // Limpa as músicas antigas antes de re-processar
-        processReleases(data.albums, 'albums');
-        processReleases(data.singles, 'singles');
-
-        db.artists = Array.from(artistsMap.values());
+        
+        // Combina álbuns e singles em um único array `db.albums`
         db.albums = [...(data.albums || []), ...(data.singles || [])];
+        db.artists = Array.from(artistsMap.values());
         db.players = data.players || [];
+        
+        // Não é mais necessário processar 'albums' e 'singles' separadamente
+        // pois `db.albums` já contém tudo.
     };
+
 
     /**
      * [NOVO] Recarrega todos os dados do Airtable e atualiza a UI
@@ -289,18 +301,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     const openArtistDetail = (artistName) => {
         const artist = db.artists.find(a => a.name === artistName);
         if (!artist) return;
-        switchView('artistDetail'); // Mover switchView para o topo
+        activeArtist = artist; // Define o artista ativo
+        switchView('artistDetail'); 
         document.getElementById('detailBg').style.backgroundImage = `url(${artist.img})`;
         document.getElementById('detailName').textContent = artist.name;
         const allSongsByArtist = db.songs.filter(s => s.artist === artistName);
         const topSongs = allSongsByArtist.sort((a, b) => b.streams - a.streams).slice(0, 5);
         document.getElementById('popularSongsList').innerHTML = topSongs.map((song, index) => `<div class="song-row" data-album-id="${song.albumId}"><div style="color: var(--text-secondary);">${index + 1}</div><div class="song-row-info"><img class="song-row-cover" src="${song.cover}" alt="${song.title}"><div class="song-row-title">${song.title}</div></div><div class="song-streams">${song.streams.toLocaleString('pt-BR')}</div></div>`).join('');
-        const renderHorizontalList = (containerId, items) => { document.getElementById(containerId).innerHTML = items.map(item => `<div class="album-card" data-album-id="${item.id}"><img src="${item.imageUrl}" alt="${item.title}"><div class="album-title">${item.title}</div><div class="album-year">${new Date(item.releaseDate || '2024-01-01').getFullYear()}</div></div>`).join(''); };
         
-        // Separa álbuns de EPs/Singles pela contagem de faixas (Ex: 3+ faixas = álbum)
-        const artistAlbums = db.albums.filter(a => a.artist === artist.name);
-        renderHorizontalList('albumsList', artistAlbums.filter(a => a.tracks.length > 2)); 
-        renderHorizontalList('singlesList', artistAlbums.filter(a => a.tracks.length <= 2)); 
+        const renderHorizontalList = (containerId, items) => { 
+            document.getElementById(containerId).innerHTML = items.map(item => `<div class="album-card" data-album-id="${item.id}"><img src="${item.imageUrl}" alt="${item.title}"><div class="album-title">${item.title}</div><div class="album-year">${new Date(item.releaseDate || '2024-01-01').getFullYear()}</div></div>`).join(''); 
+        };
+        
+        // --- LÓGICA DE ÁLBUM/EP ATUALIZADA ---
+        const artistReleases = db.albums.filter(a => a.artist === artist.name);
+        const thirtyMinutesInSeconds = 30 * 60;
+        
+        // Álbuns = 30 min ou mais
+        renderHorizontalList('albumsList', artistReleases.filter(a => a.totalDurationSeconds >= thirtyMinutesInSeconds)); 
+        // Singles/EPs = Menos de 30 min
+        renderHorizontalList('singlesList', artistReleases.filter(a => a.totalDurationSeconds < thirtyMinutesInSeconds)); 
         
         renderArtistsGrid('recommendedGrid', db.artists.filter(a => a.name !== artistName).sort(() => 0.5 - Math.random()).slice(0, 4));
     };
@@ -308,7 +328,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const openAlbumDetail = (albumId) => {
         const album = db.albums.find(a => a.id === albumId);
         if (!album) return;
-        switchView('albumDetail'); // Mover switchView para o topo
+        activeArtist = db.artists.find(a => a.name === album.artist); // Define o artista ativo
+        switchView('albumDetail'); 
         document.getElementById('albumDetailBg').style.backgroundImage = `url(${album.imageUrl})`;
         document.getElementById('albumDetailCover').src = album.imageUrl;
         document.getElementById('albumDetailTitle').textContent = album.title;
@@ -325,13 +346,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const openDiscographyDetail = (type) => {
-        const artist = db.artists.find(a => a.name === activeArtist?.name); // Recarrega o artista do DB
+        // 'activeArtist' já foi definido por openArtistDetail
+        if (!activeArtist) return; 
+
+        const artist = db.artists.find(a => a.name === activeArtist.name);
         if (!artist) return;
         
-        const artistAlbums = db.albums.filter(a => a.artist === artist.name);
+        // --- LÓGICA DE ÁLBUM/EP ATUALIZADA ---
+        const artistReleases = db.albums.filter(a => a.artist === artist.name);
+        const thirtyMinutesInSeconds = 30 * 60;
+        
         const items = type === 'albums' 
-            ? artistAlbums.filter(a => a.tracks.length > 2)
-            : artistAlbums.filter(a => a.tracks.length <= 2);
+            ? artistReleases.filter(a => a.totalDurationSeconds >= thirtyMinutesInSeconds)
+            : artistReleases.filter(a => a.totalDurationSeconds < thirtyMinutesInSeconds);
 
         document.getElementById('discographyTypeTitle').textContent = type === 'albums' ? 'Todos os Álbuns' : 'Todos os Singles e EPs';
         const grid = document.getElementById('discographyGrid');
@@ -937,9 +964,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         const seeAllBtn = target.closest('.see-all-btn');
         if (seeAllBtn) {
-            // Precisa garantir que 'activeArtist' esteja definido
-            // A lógica de openArtistDetail já define o activeArtist
-            if(activeArtist) {
+            // 'activeArtist' é definido quando 'openArtistDetail' é chamado
+            if(activeArtist) { 
                 openDiscographyDetail(seeAllBtn.dataset.type);
             }
             return;
