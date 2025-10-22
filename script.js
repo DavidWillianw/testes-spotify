@@ -154,19 +154,38 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    /**
+/**
      * Coloca os dados carregados no banco de dados local 'db'
+     * (VERSÃO CORRIGIDA E SIMPLIFICADA)
      */
     const initializeData = (data) => {
          try {
-            db.artists = data.allArtists || []; // Guarda todos os artistas
+            // Popula diretamente com os dados formatados do loadAllData
+            db.artists = data.allArtists || [];
             db.albums = [...(data.albums || []), ...(data.singles || [])]; // Combina releases
             db.players = data.players || [];
-            db.songs = data.musicas || []; // Guarda todas as músicas detalhadas
+            db.songs = data.musicas || []; // Usa a lista completa de músicas diretamente
 
-            console.log("DB Inicializado:", db);
+            // Adiciona streams aleatórios às músicas (se já não tiverem)
+            // e garante que artistIds seja um array
+            db.songs.forEach(song => {
+                if (!song.streams) {
+                    song.streams = Math.floor(Math.random() * 25000000) + 50000;
+                }
+                if (!Array.isArray(song.artistIds)) {
+                     song.artistIds = []; // Garante que é um array
+                }
+                // Busca a capa do álbum correspondente e adiciona à música para facilitar
+                 const parentAlbum = db.albums.find(a => a.id === song.albumId);
+                 song.cover = parentAlbum ? parentAlbum.imageUrl : 'https://i.imgur.com/AD3MbBi.png';
+            });
+
+
+            console.log("DB Inicializado:", db); // Log para verificar o db
          } catch (error) {
              console.error("Erro durante initializeData:", error);
+             // Informa o usuário sobre o erro de inicialização
+             alert("Ocorreu um erro ao inicializar os dados. Verifique o console para detalhes.");
          }
     };
 
