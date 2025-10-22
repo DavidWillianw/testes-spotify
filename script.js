@@ -450,6 +450,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }).sort((a, b) => b.chartScore - a.chartScore).slice(0, CHART_TOP_N);
     }
 
+// Render do Top 20 na UI (AGORA APENAS VISUALIZAÇÃO)
     function renderRPGChart() {
       let container = document.getElementById('rpgChartList');
       if (!container) {
@@ -457,7 +458,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         wrapper.id = 'rpgChartSection';
         wrapper.className = 'content-section';
         wrapper.innerHTML = `
-          <div class="chart-header"><h3>🏆 RPG Spotify - Top ${CHART_TOP_N}</h3><p>Atualiza automaticamente</p></div>
+          <div class="chart-header"><h3>🏆 RPG Spotify - Top ${CHART_TOP_N}</h3><p>Ranking baseado em pontos RPG</p></div>
           <div id="rpgChartList" class="chart-list"></div>
         `;
         const mainEl = document.querySelector('#mainView .main-container');
@@ -469,11 +470,30 @@ document.addEventListener('DOMContentLoaded', async () => {
           const btn = document.createElement('button');
           btn.className = 'nav-tab';
           btn.dataset.tab = 'rpgChartSection';
-          btn.textContent = 'Briga de Charts';
+          btn.textContent = 'Ranking RPG'; // Renomeado para clareza
           nav.appendChild(btn);
           btn.addEventListener('click', (e) => switchTab(e));
         }
       }
+
+      const artistsForChart = db.artists;
+      const chart = computeChartData(artistsForChart);
+
+      // --- MODIFICAÇÃO PRINCIPAL AQUI: Removida a div chart-stats com os botões ---
+      container.innerHTML = chart.map((item, idx) => `
+        <div class="chart-item rpg-chart-item" data-id="${item.id}" data-artist-name="${item.name}">
+          <div class="chart-position">${idx + 1}</div>
+          <img src="${item.img}" class="chart-cover">
+          <div class="chart-info">
+            <div class="chart-title">${item.name}</div>
+            <div class="chart-artist">${item.points} pts • ${item.simulatedStreams.toLocaleString('pt-BR')} plays</div>
+          </div>
+          
+        </div> 
+      `).join(''); // <-- Botões removidos daqui
+
+      // --- Event listeners dos botões removidos ---
+    }
 
       const artistsForChart = db.artists;
       const chart = computeChartData(artistsForChart);
