@@ -296,8 +296,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const topSongs = allSongsByArtist.sort((a, b) => b.streams - a.streams).slice(0, 5);
         document.getElementById('popularSongsList').innerHTML = topSongs.map((song, index) => `<div class="song-row" data-album-id="${song.albumId}"><div style="color: var(--text-secondary);">${index + 1}</div><div class="song-row-info"><img class="song-row-cover" src="${song.cover}" alt="${song.title}"><div class="song-row-title">${song.title}</div></div><div class="song-streams">${song.streams.toLocaleString('pt-BR')}</div></div>`).join('');
         const renderHorizontalList = (containerId, items) => { document.getElementById(containerId).innerHTML = items.map(item => `<div class="album-card" data-album-id="${item.id}"><img src="${item.imageUrl}" alt="${item.title}"><div class="album-title">${item.title}</div><div class="album-year">${new Date(item.releaseDate || '2024-01-01').getFullYear()}</div></div>`).join(''); };
-        renderHorizontalList('albumsList', db.albums.filter(a => a.artist === artist.name && a.tracks.length > 2)); // Álbuns
-        renderHorizontalList('singlesList', db.albums.filter(a => a.artist === artist.name && a.tracks.length <= 2)); // Singles
+        
+        // Separa álbuns de EPs/Singles pela contagem de faixas (Ex: 3+ faixas = álbum)
+        const artistAlbums = db.albums.filter(a => a.artist === artist.name);
+        renderHorizontalList('albumsList', artistAlbums.filter(a => a.tracks.length > 2)); 
+        renderHorizontalList('singlesList', artistAlbums.filter(a => a.tracks.length <= 2)); 
+        
         renderArtistsGrid('recommendedGrid', db.artists.filter(a => a.name !== artistName).sort(() => 0.5 - Math.random()).slice(0, 4));
     };
 
@@ -321,9 +325,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const openDiscographyDetail = (type) => {
-        if (!activeArtist) return;
-        const items = type === 'albums' ? activeArtist.albums : activeArtist.singles;
-        document.getElementById('discographyTypeTitle').textContent = type === 'albums' ? 'Todos os Álbuns' : 'Todos os Singles';
+        const artist = db.artists.find(a => a.name === activeArtist?.name); // Recarrega o artista do DB
+        if (!artist) return;
+        
+        const artistAlbums = db.albums.filter(a => a.artist === artist.name);
+        const items = type === 'albums' 
+            ? artistAlbums.filter(a => a.tracks.length > 2)
+            : artistAlbums.filter(a => a.tracks.length <= 2);
+
+        document.getElementById('discographyTypeTitle').textContent = type === 'albums' ? 'Todos os Álbuns' : 'Todos os Singles e EPs';
         const grid = document.getElementById('discographyGrid');
         grid.innerHTML = items.map(item => `
             <div class="album-card-grid" data-album-id="${item.id}">
@@ -442,7 +452,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const chart = computeChartData(artistsForChart);
 
       container.innerHTML = chart.map((item, idx) => `
-        <div class="chart-item rpg-chart-item" data-id="${item.id}">
+        <div class="chart-item rpg-chart-item" data-id="${item.id}" data-artist-name="${item.name}">
           <div class="chart-position">${idx + 1}</div>
           <img src="${item.img}" class="chart-cover">
           <div class="chart-info">
@@ -648,6 +658,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     /**
      * Função genérica para criar um novo registro no Airtable.
+     * (VERSÃO CORRIGIDA)
      */
     async function createAirtableRecord(tableName, fields) {
         const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(tableName)}`;
@@ -655,19 +666,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${AIRTABLE_API_KEY}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ "records": [{ fields }] }) // Formato correto para criar múltiplos
+                // CORREÇÃO: Removido o array "records", pois estamos criando apenas um.
+                body: JSON.stringify({ fields }) 
             });
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(`Erro do Airtable: ${JSON.stringify(errorData.error)}`);
             }
             const data = await response.json();
-            return data.records[0]; // Retorna o primeiro registro criado
+            return data; // Retorna o registro criado (que contém o .id)
         } catch (error) {
             console.error(`Falha ao criar registro na tabela ${tableName}:`, error);
             return null;
         }
     }
+
 
     /**
      * Processa o envio do formulário de NOVO SINGLE.
@@ -783,6 +796,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     /**
      * [NOVO] Processa o envio do formulário de NOVO ÁLBUM/EP.
+     * (VERSÃO CORRIGIDA)
      */
     async function handleAlbumSubmit(event) {
         event.preventDefault();
@@ -831,20 +845,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             const newSongIds = newSongs.map(song => song.id);
 
-            // 4. Determinar se é Álbum ou EP (usaremos a tabela 'Álbuns' para ambos)
-            // Você pode criar uma tabela separada ou um campo 'Tipo' se quiser diferenciar
+            // 4. Determinar se é Álbum ou EP
+            
+            // --- CORREÇÃO AQUI ---
             const albumFields = {
                 "Nome do Álbum": albumTitle,
-                "Capa": [{ "url": albumCoverUrl }],
+                "Capa do Álbum": [{ "url": albumCoverUrl }], // Nome correto do campo
                 "Músicas": newSongIds,
                 "Artista": [artistId],
                 "Data de Lançamento": new Date().toISOString().split('T')[0]
             };
+            // --- FIM DA CORREÇÃO ---
             
             // 5. Criar o Álbum e lincar as músicas
             console.log("Criando álbum...", albumFields);
-            const newAlbum = await createAirtableRecord('Álbuns', albumFields);
-            if (!newAlbum || !newAlbum.id) throw new Error("Falha ao criar o álbum.");
+            const newAlbum = await createAirtableRecord('Álbuns', albumFields); // Agora usa a função createAirtableRecord corrigida
+            if (!newAlbum || !newAlbum.id) throw new Error("Falha ao criar o álbum."); // Este era o seu erro
 
             alert("Álbum lançado com sucesso! Atualizando os dados...");
             newAlbumForm.reset();
@@ -889,17 +905,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.body.addEventListener('click', (e) => {
         const target = e.target;
         const chartItem = target.closest('.chart-item');
+        // Impede que os cliques nos botões de ação do RPG abram o artista
         if (chartItem && !target.closest('.btn-action')) {
             const { type, artistName, albumId, id } = chartItem.dataset;
-            // Se for do RPG chart, não faz nada (ainda)
+            // Se for do RPG chart, abre o artista
             if (chartItem.classList.contains('rpg-chart-item')) {
-                 openArtistDetail(artistName); // Abre o artista ao clicar
+                 openArtistDetail(artistName); 
                  return;
             }
             // Se for chart de música, abre o álbum
             if (type === 'music') openAlbumDetail(albumId);
             // Se for chart de álbum, abre o álbum
-            else if (type === 'album') openAlbumDetail(id); 
+            else if (type === 'album') openAlbumDetail(albumId || id); // Usa albumId se disponível, senão o id do item
             else openArtistDetail(artistName);
             return;
         }
@@ -920,7 +937,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         const seeAllBtn = target.closest('.see-all-btn');
         if (seeAllBtn) {
-            openDiscographyDetail(seeAllBtn.dataset.type);
+            // Precisa garantir que 'activeArtist' esteja definido
+            // A lógica de openArtistDetail já define o activeArtist
+            if(activeArtist) {
+                openDiscographyDetail(seeAllBtn.dataset.type);
+            }
             return;
         }
     });
