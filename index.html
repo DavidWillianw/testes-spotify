@@ -37,7 +37,8 @@
             Top Álbuns
           </button>
           <button class="nav-tab" data-tab="artistsSection">Artistas</button>
-          </nav>
+          <button class="nav-tab" data-tab="studioSection">Meu Estúdio</button>
+        </nav>
       </header>
 
       <main class="main-container">
@@ -144,6 +145,74 @@
       </main>
     </div>
 
+    <div id="studioView" class="page-view hidden">
+      <main class="main-container">
+        <section id="studioSection" class="content-section active">
+          <h2 class="section-title">Meu Estúdio</h2>
+          <p class="studio-subtitle">Lance novas músicas por aqui.</p>
+
+          <form id="newSingleForm" class="studio-form">
+            <h3>🚀 Lançar Novo Single</h3>
+
+            <div class="studio-form-group">
+              <label for="studioArtistSelect">Selecione o Artista</label>
+              <select id="studioArtistSelect" required>
+                <option value="">Carregando artistas...</option>
+                </select>
+            </div>
+
+            <div class="studio-form-group">
+              <label for="singleTitle">Nome do Single (ou EP)</label>
+              <input
+                type="text"
+                id="singleTitle"
+                placeholder="Ex: After Like"
+                required
+              />
+            </div>
+
+            <div class="studio-form-group">
+              <label for="singleCoverUrl">URL da Capa</label>
+              <input
+                type="url"
+                id="singleCoverUrl"
+                placeholder="https://i.imgur.com/..."
+                required
+              />
+            </div>
+
+            <hr class="form-divider" />
+            <h4>Informações da Faixa</h4>
+
+            <div class="studio-form-group">
+              <label for="trackName">Nome da Faixa</label>
+              <input
+                type="text"
+                id="trackName"
+                placeholder="Ex: After Like"
+                required
+              />
+            </div>
+
+            <div class="studio-form-group">
+              <label for="trackDuration">Duração (formato MM:SS)</label>
+              <input
+                type="text"
+                id="trackDuration"
+                placeholder="Ex: 3:45"
+                pattern="\d{1,2}:\d{2}"
+                required
+              />
+            </div>
+
+            <button type="submit" class="submit-btn" id="submitNewSingle">
+              Lançar Single
+            </button>
+          </form>
+        </section>
+      </main>
+    </div>
+
     <nav class="bottom-nav">
       <button class="bottom-nav-item active" data-tab="homeSection">
         <i class="fas fa-home"></i><span>Início</span>
@@ -157,7 +226,10 @@
       <button class="bottom-nav-item" data-tab="artistsSection">
         <i class="fas fa-users"></i><span>Artistas</span>
       </button>
-      </nav>
+      <button class="bottom-nav-item" data-tab="studioSection">
+        <i class="fas fa-microphone-alt"></i><span>Estúdio</span>
+      </button>
+    </nav>
 
     <script src="open.spotify.com/playlist"></script>
     <script src="script.js"></script>
