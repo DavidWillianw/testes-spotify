@@ -38,7 +38,7 @@
           </button>
           <button class="nav-tab" data-tab="artistsSection">Artistas</button>
           <button class="nav-tab" data-tab="studioSection">Meu Estúdio</button>
-          </nav>
+        </nav>
       </header>
 
       <main class="main-container">
@@ -72,7 +72,7 @@
             <p>Não encontramos nada.</p>
           </div>
         </section>
-        </main>
+      </main>
     </div>
 
     <div id="artistDetail" class="page-view hidden">
@@ -187,6 +187,10 @@
                 <label for="singleCoverUrl">URL da Capa</label>
                 <input type="url" id="singleCoverUrl" placeholder="https://i.imgur.com/..." required />
               </div>
+              <div class="studio-form-group">
+                <label for="singleReleaseDate">Data de Lançamento</label>
+                <input type="date" id="singleReleaseDate" required />
+              </div>
               <hr class="form-divider" />
               <h4>Informações da Faixa</h4>
               <div class="studio-form-group">
@@ -221,6 +225,10 @@
               <div class="studio-form-group">
                 <label for="albumCoverUrl">URL da Capa</label>
                 <input type="url" id="albumCoverUrl" placeholder="https://i.imgur.com/..." required />
+              </div>
+               <div class="studio-form-group">
+                <label for="albumReleaseDate">Data de Lançamento</label>
+                <input type="date" id="albumReleaseDate" required />
               </div>
               <hr class="form-divider" />
               <h4> Tracklist <span class="track-helper">(Arraste <i class="fas fa-bars"></i> para reordenar)</span></h4>
@@ -275,7 +283,7 @@
       <button class="bottom-nav-item" data-tab="studioSection">
         <i class="fas fa-microphone-alt"></i><span>Estúdio</span>
       </button>
-      </nav>
+    </nav>
     <script src="script.js"></script>
   </body>
 </html>
