@@ -69,7 +69,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         let offset = null;
 
         do {
-            const fetchUrl = offset ? `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}offset=${offset}` : baseUrl;
+             // Corrige a adição do offset para URLs que já têm parâmetros
+            const separator = baseUrl.includes('?') ? '&' : '?';
+            const fetchUrl = offset ? `${baseUrl}${separator}offset=${offset}` : baseUrl;
 
             const response = await fetch(fetchUrl, fetchOptions);
             if (!response.ok) {
@@ -881,7 +883,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
             if (!response.ok) {
                 const errorData = await response.json();
-                console.error(`Erro ao criar registro em ${tableName}:`, JSON.stringify(errorData, null, 2)); // Log detalhado do erro
+                console.error(`Erro ao criar registro em ${tableName}:`, JSON.stringify(errorData, null, 2));
                 throw new Error(`Airtable error: ${response.status}`);
             }
             return await response.json();
@@ -901,6 +903,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         return (minutes * 60) + seconds;
     }
 
+    // =============================================================
+    // VERSÃO COM O CONSOLE.LOG PARA DEBUG E CORREÇÃO DO LINK SINGLE
+    // =============================================================
     async function handleSingleSubmit(event) {
         event.preventDefault();
         const submitBtn = document.getElementById('submitNewSingle');
@@ -933,7 +938,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!singleRecordResponse || !singleRecordResponse.id) {
                 throw new Error("Falha ao criar o registro do Single/EP.");
             }
-            const singleRecordId = singleRecordResponse.id;
+            const singleRecordId = singleRecordResponse.id; // <-- Pega o ID aqui
 
             // Processa feats para nome da faixa e artistas
             const featTags = document.querySelectorAll('#singleFeatList .feat-tag');
@@ -960,7 +965,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             }
 
-            // Cria o objeto de campos para a Música
+            // Cria o objeto de campos para a Música SEMPRE incluindo o link
             const musicRecordFields = {
                 "Nome da Faixa": finalTrackName,
                 "Artista": finalArtistIds,
@@ -969,13 +974,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 "Singles e EPs": [singleRecordId] // Linka ao Single/EP criado
             };
 
-            // Adiciona o tipo de colaboração se existir
+            // Adiciona o tipo de colaboração APENAS se existir
             if (collabType) {
                 musicRecordFields["Tipo de Colaboração"] = collabType;
             }
 
             // Log para depuração
-            console.log('Enviando para Músicas (Single):', JSON.stringify(musicRecordFields, null, 2));
+            console.log('--- DEBUG: Enviando para Músicas (Single) ---');
+            console.log(JSON.stringify(musicRecordFields, null, 2));
+
 
             // Cria o registro da Música
             const musicRecordResponse = await createAirtableRecord('Músicas', musicRecordFields);
@@ -988,12 +995,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             alert("Single lançado com sucesso!");
             newSingleForm.reset();
-            singleReleaseDateInput.value = new Date().toISOString().split('T')[0]; // Reseta data
+            singleReleaseDateInput.value = new Date().toISOString().split('T')[0];
             document.getElementById('singleFeatList').innerHTML = '';
             await refreshAllData();
 
         } catch (error) {
-            alert("Erro ao lançar o single. Verifique o console.");
+            alert("Erro ao lançar o single. Verifique o console para mais detalhes.");
             console.error("Erro em handleSingleSubmit:", error);
         } finally {
             submitBtn.disabled = false;
@@ -1065,7 +1072,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const results = [];
         for (const chunk of chunks) {
-             // Log para depuração do lote
              console.log(`Enviando lote para ${tableName}:`, JSON.stringify(chunk.map(fields => ({ fields })), null, 2));
             try {
                 const response = await fetch(url, {
@@ -1079,7 +1085,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                 if (!response.ok) {
                     const errorData = await response.json();
-                    console.error(`Erro ao criar lote em ${tableName}:`, JSON.stringify(errorData, null, 2)); // Log detalhado do erro
+                    console.error(`Erro ao criar lote em ${tableName}:`, JSON.stringify(errorData, null, 2));
                     throw new Error(`Airtable batch error: ${response.status}`);
                 }
                 const data = await response.json();
@@ -1208,7 +1214,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             alert("Álbum/EP lançado com sucesso!");
             newAlbumForm.reset();
-            albumReleaseDateInput.value = new Date().toISOString().split('T')[0]; // Reseta data
+            albumReleaseDateInput.value = new Date().toISOString().split('T')[0];
             albumTracklistEditor.innerHTML = '';
             initAlbumForm();
             await refreshAllData();
