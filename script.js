@@ -1,15 +1,14 @@
 document.addEventListener('DOMContentLoaded', async () => {
 
     // --- VARIÁVEIS GLOBAIS ---
-    // CORREÇÃO: Adicionado 'singles' ao DB
     let db = { artists: [], albums: [], singles: [], songs: [], players: [] };
     let currentPlayer = null;
     let albumTracklistSortable = null;
-    let activeArtist = null; // Usado para páginas de discografia
-    let currentFeatTarget = null; // Usado pelo modal de feat
-    let viewHistory = []; // Para o botão "Voltar"
+    let activeArtist = null; 
+    let currentFeatTarget = null; 
+    let viewHistory = []; 
 
-    // --- ELEMENTOS DO DOM (Definidos após o DOM carregar) ---
+    // --- ELEMENTOS DO DOM ---
     let allViews, searchInput, studioView, loginPrompt, loggedInInfo, playerSelect,
         loginButton, logoutButton, studioLaunchWrapper, studioTabs, studioForms,
         newSingleForm, singleArtistSelect, newAlbumForm, albumArtistSelect,
@@ -46,18 +45,45 @@ document.addEventListener('DOMContentLoaded', async () => {
         cancelFeatBtn = document.getElementById('cancelFeatBtn');
         participacoesList = document.getElementById('participacoesList');
 
-        // Check if essential elements exist
         if (!studioView || !loginPrompt || !playerSelect || !newSingleForm || !newAlbumForm || !featModal || !allViews || allViews.length === 0 || !participacoesList) {
             console.error("ERRO CRÍTICO: Elementos essenciais do HTML não foram encontrados! Verifique IDs: studioView, loginPrompt, playerSelect, newSingleForm, newAlbumForm, featModal, .page-view, participacoesList");
             document.body.innerHTML = '<div style="color: red; padding: 20px; text-align: center;"><h1>Erro de Interface</h1><p>Elementos essenciais da página não foram encontrados. Verifique o HTML e os IDs.</p></div>';
-            return false; // Indicate failure
+            return false;
         }
         console.log("DOM elements initialized.");
-        return true; // Indicate success
+        return true;
     }
 
 
     // --- 1. CARREGAMENTO DE DADOS ---
+
+    /**
+     * NOVO: Helper para buscar TODAS as páginas de uma tabela do Airtable (corrige o limite de 100 registros)
+     */
+    async function fetchAllAirtablePages(baseUrl, fetchOptions) {
+        let allRecords = [];
+        let offset = null;
+        let url = baseUrl;
+
+        do {
+            // Adiciona o offset à URL se ele existir
+            const fetchUrl = offset ? `${baseUrl}&offset=${offset}` : baseUrl;
+            
+            const response = await fetch(fetchUrl, fetchOptions);
+            if (!response.ok) {
+                console.error(`Falha ao carregar ${fetchUrl}: ${response.status}`);
+                throw new Error(`Airtable fetch failed for ${baseUrl}`);
+            }
+            
+            const data = await response.json();
+            allRecords.push(...data.records);
+            offset = data.offset; // Pega o offset para a próxima página
+
+        } while (offset); // Continua enquanto houver um offset
+        
+        return { records: allRecords }; // Retorna a lista completa
+    }
+
     async function loadAllData() {
         const artistsURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Artists?filterByFormula=%7BArtista%20Principal%7D%3D1`;
         const albumsURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Álbuns`;
@@ -65,22 +91,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         const singlesURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Singles%20e%20EPs`;
         const playersURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Jogadores`;
         const fetchOptions = { headers: { 'Authorization': `Bearer ${AIRTABLE_API_KEY}` } };
-        console.log("Iniciando carregamento de dados...");
+        
+        console.log("Iniciando carregamento de dados (com paginação)...");
         try {
-            const [artistsResponse, albumsResponse, musicasResponse, singlesResponse, playersResponse] = await Promise.all([
-                fetch(artistsURL, fetchOptions), fetch(albumsURL, fetchOptions),
-                fetch(musicasURL, fetchOptions), fetch(singlesURL, fetchOptions),
-                fetch(playersURL, fetchOptions)
+            // CORRIGIDO: Usa 'fetchAllAirtablePages' para garantir que todos os dados sejam carregados
+            const [artistsData, albumsData, musicasData, singlesData, playersData] = await Promise.all([
+                fetchAllAirtablePages(artistsURL, fetchOptions),
+                fetchAllAirtablePages(albumsURL, fetchOptions),
+                fetchAllAirtablePages(musicasURL, fetchOptions),
+                fetchAllAirtablePages(singlesURL, fetchOptions),
+                fetchAllAirtablePages(playersURL, fetchOptions)
             ]);
-            if (!artistsResponse.ok || !albumsResponse.ok || !musicasResponse.ok || !singlesResponse.ok || !playersResponse.ok) {
-                console.error("Falha ao carregar Airtable:", { artists: artistsResponse.status, albums: albumsResponse.status, musicas: musicasResponse.status, singles: singlesResponse.status, players: playersResponse.status });
-                throw new Error('Falha ao carregar dados Airtable.');
+            
+            if (!artistsData || !albumsData || !musicasData || !singlesData || !playersData) {
+                 throw new Error('Falha ao carregar dados Airtable (paginação).');
             }
-            const artistsData = await artistsResponse.json();
-            const albumsData = await albumsResponse.json();
-            const musicasData = await musicasResponse.json();
-            const singlesData = await singlesResponse.json();
-            const playersData = await playersResponse.json();
 
             // --- RECONSTRUÇÃO ---
             const musicasMap = new Map();
@@ -96,14 +121,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
             });
 
-            const artistsMapById = new Map(); // Keep this map local to loadAllData
+            const artistsMapById = new Map();
             const artistsList = (artistsData.records || []).map(record => {
                 const artist = {
                     id: record.id, name: record.fields.Name || 'Nome Indisponível',
                     imageUrl: (record.fields['URL da Imagem'] && record.fields['URL da Imagem'][0]?.url) || 'https://i.imgur.com/AD3MbBi.png',
                     off: record.fields['Inspirações (Off)'] || [], RPGPoints: record.fields.RPGPoints || 0, LastActive: record.fields.LastActive || null
                 };
-                artistsMapById.set(artist.id, artist.name); // Populate local map
+                artistsMapById.set(artist.id, artist.name);
                 return artist;
             });
 
@@ -117,7 +142,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const totalDurationSeconds = tracks.reduce((total, track) => total + (track.durationSeconds || 0), 0);
                     const mainArtistIdFromServer = fields['Artista'] || [];
                     const mainArtistId = Array.isArray(mainArtistIdFromServer) ? mainArtistIdFromServer[0] : (mainArtistIdFromServer || null);
-                    // Use the local map here
                     const mainArtistName = mainArtistId ? artistsMapById.get(mainArtistId) : "Artista Desconhecido";
                     const imageUrlField = isAlbumTable ? 'Capa do Álbum' : 'Capa';
                     const imageUrl = (fields[imageUrlField] && fields[imageUrlField][0]?.url) || 'https://i.imgur.com/AD3MbBi.png';
@@ -147,42 +171,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    /**
-     * Coloca os dados carregados no banco de dados local 'db'
-     * (VERSÃO CORRIGIDA - Separa Álbuns/Singles corretamente)
-     */
     const initializeData = (data) => {
         try {
-            // 1. Initialize Artists Map & db.artists LOCALLY
-            const artistsMapById = new Map(); // Create map here
+            const artistsMapById = new Map(); 
             db.artists = (data.allArtists || []).map(artist => {
                 const artistEntry = {
                     ...artist,
                     img: artist.imageUrl || 'https://i.imgur.com/AD3MbBi.png',
-                    albums: [], // Will be populated later
-                    singles: []  // Will be populated later
+                    albums: [], 
+                    singles: []  
                 };
-                artistsMapById.set(artist.id, artist.name); // Populate map here
+                artistsMapById.set(artist.id, artist.name); 
                 return artistEntry;
             });
 
-            // 2. Initialize db.songs using the LOCAL artistsMapById
             db.songs = (data.musicas || []).map(song => ({
                 ...song,
                 streams: song.streams || Math.floor(Math.random() * 25000000) + 50000,
-                cover: 'https://i.imgur.com/AD3MbBi.png', // Default cover initially
-                // Use the LOCAL map to find the name
+                cover: 'https://i.imgur.com/AD3MbBi.png', 
                 artist: artistsMapById.get((song.artistIds || [])[0]) || 'Artista Desc.'
             }));
 
-            // 3. Process Releases (Albums and Singles combined)
-            db.albums = [];  // Reset/Initialize
-            db.singles = []; // Reset/Initialize
+            db.albums = [];  
+            db.singles = []; 
             const allReleases = [...(data.albums || []), ...(data.singles || [])];
             const thirtyMinutesInSeconds = 30 * 60;
 
             allReleases.forEach(item => {
-                // A. Update cover url in db.songs
                 (item.tracks || []).forEach(trackInfo => {
                     const songInDb = db.songs.find(s => s.id === trackInfo.id);
                     if (songInDb) {
@@ -192,36 +207,29 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 });
 
-                // B. Link releases to artists AND populate db.albums/db.singles
                 const artistEntry = db.artists.find(a => a.id === item.artistId);
                 
-                // Classifica como Álbum ou Single
                 if ((item.totalDurationSeconds || 0) >= thirtyMinutesInSeconds) {
-                    // É um Álbum
-                    db.albums.push(item); // Adiciona ao db.albums global
+                    db.albums.push(item); 
                     if (artistEntry) {
                         if (!Array.isArray(artistEntry.albums)) artistEntry.albums = [];
                         artistEntry.albums.push(item);
                     }
                 } else {
-                    // É um Single/EP
-                    db.singles.push(item); // Adiciona ao db.singles global
+                    db.singles.push(item); 
                     if (artistEntry) {
                         if (!Array.isArray(artistEntry.singles)) artistEntry.singles = [];
                         artistEntry.singles.push(item);
                     }
                 }
                 
-                // Log de aviso se o artista do lançamento não for encontrado
                 if (!artistEntry && item.artist !== "Artista Desconhecido") {
                      console.warn(`Artista "${item.artist}" (ID: ${item.artistId}) do lançamento "${item.title}" não encontrado em db.artists.`);
                 }
             });
 
-            // 4. Finalize db structure (players)
             db.players = data.players || [];
 
-            // Verify data counts
             console.log(`DB Inicializado: Artists: ${db.artists.length}, Albums: ${db.albums.length}, Singles: ${db.singles.length}, Songs: ${db.songs.length}, Players: ${db.players.length}`);
             return true;
         } catch (error) {
@@ -232,24 +240,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
 
-    /**
-    * Recarrega todos os dados do Airtable e reinicia a UI
-    */
     async function refreshAllData() {
         console.log("Atualizando todos os dados...");
-        // Adicionar um 'loading' visual seria bom aqui
         const data = await loadAllData();
         if (data && data.allArtists) {
             if (initializeData(data)) {
                 console.log("Dados atualizados e UI renderizada.");
-                // Re-renderizar o que for visível
-                renderRPGChart(); // Popula 'artistsGrid'
-                renderArtistsGrid('homeGrid', [...(db.artists || [])].sort(() => 0.5 - Math.random()).slice(0, 10)); // Popula 'homeGrid'
+                renderRPGChart(); 
+                renderArtistsGrid('homeGrid', [...(db.artists || [])].sort(() => 0.5 - Math.random()).slice(0, 10)); 
                 renderChart('music');
                 renderChart('album');
                 renderParticipacoes();
                 
-                // Atualizar o estúdio se o usuário estiver logado
                 if (currentPlayer) {
                     populateArtistSelector(currentPlayer.id);
                 }
@@ -263,9 +265,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- 2. NAVEGAÇÃO E UI ---
 
-    /**
-     * Alterna a visualização principal (ex: da lista para o detalhe)
-     */
     const switchView = (viewId, targetSectionId = null) => {
         console.log(`Switching view to: ${viewId}`);
         allViews.forEach(view => {
@@ -275,29 +274,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         const targetView = document.getElementById(viewId);
         if (targetView) {
             targetView.classList.remove('hidden');
-            window.scrollTo(0, 0); // Rola para o topo
+            window.scrollTo(0, 0); 
 
-            // Se for a mainView, talvez queira ir para uma aba específica
             if (viewId === 'mainView' && targetSectionId) {
                 switchTab(null, targetSectionId);
             }
 
-            // Adiciona ao histórico APENAS se não for a mainView e não for a studioView
             if (viewId !== 'mainView' && viewId !== 'studioView') {
                 viewHistory.push(viewId);
             } else if (viewId === 'mainView') {
-                viewHistory = []; // Reseta o histórico ao voltar para a mainView
+                viewHistory = []; 
             }
-            // Se for studioView, não mexe no histórico (é tratada como uma aba)
 
         } else {
             console.error(`View com ID "${viewId}" não encontrada.`);
         }
     };
 
-    /**
-     * Alterna entre as abas de conteúdo dentro da mainView
-     */
     const switchTab = (event, forceTabId = null) => {
         let tabId;
 
@@ -307,78 +300,55 @@ document.addEventListener('DOMContentLoaded', async () => {
             event.preventDefault();
             tabId = event.currentTarget.dataset.tab;
         } else {
-            return; // Não faz nada se não tiver evento ou ID forçado
+            return; 
         }
 
-        // Lógica especial para a aba 'studioSection'
         if (tabId === 'studioSection') {
-            // Garante que a view do estúdio seja mostrada
             switchView('studioView');
-            // Ativa os botões de navegação
             document.querySelectorAll('.nav-tab, .bottom-nav-item').forEach(button => {
                 button.classList.remove('active');
             });
             document.querySelectorAll(`.nav-tab[data-tab="${tabId}"], .bottom-nav-item[data-tab="${tabId}"]`).forEach(button => {
                 button.classList.add('active');
             });
-            return; // Sai da função
+            return; 
         }
         
-        // Garante que estamos na 'mainView' se não for o estúdio
         if (!document.getElementById('mainView').classList.contains('active')) {
-             // Se não for 'studioSection' e não estivermos na mainView, vá para mainView
              if (viewHistory.length > 0 || !document.getElementById('mainView').classList.contains('active')) {
                 switchView('mainView');
             }
         }
 
-        // 1. Esconde todas as seções de conteúdo na mainView
         document.querySelectorAll('#mainView .content-section').forEach(section => {
             section.classList.remove('active');
         });
 
-        // 2. Remove 'active' de todos os botões (top nav e bottom nav)
         document.querySelectorAll('.nav-tab, .bottom-nav-item').forEach(button => {
             button.classList.remove('active');
         });
 
-        // 3. Mostra a seção de conteúdo correta
         const targetSection = document.getElementById(tabId);
         if (targetSection) {
             targetSection.classList.add('active');
         }
 
-        // 4. Adiciona 'active' aos botões correspondentes (top e bottom)
         document.querySelectorAll(`.nav-tab[data-tab="${tabId}"], .bottom-nav-item[data-tab="${tabId}"]`).forEach(button => {
             button.classList.add('active');
         });
     };
 
-    /**
-     * Manipula o clique no botão "Voltar"
-     */
     const handleBack = () => {
-        // Remove a view atual do histórico
         viewHistory.pop();
-        
-        // Pega a view anterior (ou mainView se o histórico estiver vazio)
-        const previousViewId = viewHistory.pop() || 'mainView'; // .pop() de novo para pegar a anterior
+        const previousViewId = viewHistory.pop() || 'mainView'; 
         
         if (previousViewId === 'mainView') {
             switchView('mainView');
         } else {
-            // Re-chama a função de detalhe para re-adicionar ao histórico
-            // Solução mais simples: apenas vá para a view. A 'switchView' vai re-adicionar.
-            // (Vamos testar se a view é re-adicionada)
-            
-            // Re-chamar a função original é complexo. Apenas mude a view.
             switchView(previousViewId);
         }
     };
 
-    /**
-     * Renderiza um grid de artistas em um container
-     */
     const renderArtistsGrid = (containerId, artists) => {
         const container = document.getElementById(containerId);
         if (!container) {
@@ -400,9 +370,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         `).join('');
     };
 
-    /**
-     * Formata a string de artistas com feats (ex: Artista 1 (feat. Artista 2))
-     */
     function formatArtistString(artistIds, collabType) {
         if (!artistIds || artistIds.length === 0) return "Artista Desconhecido";
         
@@ -418,33 +385,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         if (collabType === 'Dueto/Grupo') {
             return `${mainArtist} & ${featArtists}`;
-        } else { // 'Feat.' ou padrão
+        } else { 
             return `${mainArtist} (feat. ${featArtists})`;
         }
     }
     
-    /**
-     * Helper para buscar a URL da capa de um lançamento
-     */
     function getCoverUrl(albumId) {
         if (!albumId) return 'https://i.imgur.com/AD3MbBi.png';
         const release = [...db.albums, ...db.singles].find(a => a.id === albumId);
         return (release ? release.imageUrl : 'https://i.imgur.com/AD3MbBi.png');
     }
 
-    /**
-     * Renderiza os charts de Músicas ou Álbuns
-     */
     const renderChart = (type) => {
         let containerId, dataList;
 
         if (type === 'music') {
             containerId = 'musicChartsList';
-            // Usar db.songs, classificar por 'streams'
             dataList = [...db.songs].sort((a, b) => (b.streams || 0) - (a.streams || 0)).slice(0, 50);
-        } else { // album
+        } else { 
             containerId = 'albumChartsList';
-            // Usar db.albums (NÃO db.singles), classificar por 'metascore'
             dataList = [...db.albums].sort((a, b) => (b.metascore || 0) - (a.metascore || 0)).slice(0, 50);
         }
 
@@ -458,7 +417,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         container.innerHTML = dataList.map((item, index) => {
             if (type === 'music') {
-                // Renderização de Música
                 const artistName = formatArtistString(item.artistIds, item.collabType);
                 return `
                     <div class="chart-item" data-song-id="${item.id}">
@@ -472,7 +430,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     </div>
                 `;
             } else {
-                // Renderização de Álbum
                 return `
                     <div class="chart-item" data-album-id="${item.id}">
                         <span class="chart-rank">${index + 1}</span>
@@ -488,9 +445,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }).join('');
     };
 
-    /**
-     * Abre a página de detalhes do artista
-     */
     const openArtistDetail = (artistName) => {
         const artist = db.artists.find(a => a.name === artistName);
         if (!artist) {
@@ -498,37 +452,37 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
 
-        // Armazenar artista ativo para `openDiscographyDetail`
         activeArtist = artist;
 
-        // Preencher cabeçalho
         document.getElementById('detailBg').style.backgroundImage = `url(${artist.img})`;
         document.getElementById('detailName').textContent = artist.name;
 
-        // Preencher Populares (Top 5 músicas)
         const popularSongs = [...db.songs]
             .filter(s => s.artistIds && s.artistIds.includes(artist.id))
             .sort((a, b) => (b.streams || 0) - (a.streams || 0))
             .slice(0, 5);
 
         const popularContainer = document.getElementById('popularSongsList');
+        
+        // =================================================================
+        // CORREÇÃO "POPULARES FEIOS"
+        // O HTML foi alterado para bater com o seu novo CSS (.song-row, .song-row-info, etc.)
+        // =================================================================
         if (popularSongs.length > 0) {
             popularContainer.innerHTML = popularSongs.map((song, index) => `
-                <div class="chart-item popular-song" data-song-id="${song.id}">
-                    <span class="chart-rank">${index + 1}</span>
-                    <img src="${song.cover || getCoverUrl(song.albumId)}" alt="${song.title}" class="chart-item-img">
-                    <div class="chart-item-info">
-                        <span class="chart-item-title">${song.title}</span>
-                        <span class="chart-item-artist">${(song.streams || 0).toLocaleString('pt-BR')} streams</span>
+                <div class="song-row" data-song-id="${song.id}">
+                    <span>${index + 1}</span>
+                    <div class="song-row-info">
+                        <img src="${song.cover || getCoverUrl(song.albumId)}" alt="${song.title}" class="song-row-cover">
+                        <span class="song-row-title">${song.title}</span>
                     </div>
+                    <span class="song-streams">${(song.streams || 0).toLocaleString('pt-BR')} streams</span>
                 </div>
             `).join('');
         } else {
             popularContainer.innerHTML = '<p class="empty-state-small">Nenhuma música popular.</p>';
         }
 
-
-        // Preencher Álbuns (scroll horizontal)
         const albumsContainer = document.getElementById('albumsList');
         albumsContainer.innerHTML = (artist.albums || []).map(album => `
             <div class="scroll-item" data-album-id="${album.id}">
@@ -537,7 +491,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>
         `).join('') || '<p class="empty-state-small">Nenhum álbum.</p>';
 
-        // Preencher Singles (scroll horizontal)
         const singlesContainer = document.getElementById('singlesList');
         singlesContainer.innerHTML = (artist.singles || []).map(single => `
             <div class="scroll-item" data-album-id="${single.id}">
@@ -546,20 +499,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>
         `).join('') || '<p class="empty-state-small">Nenhum single.</p>';
 
-        // Preencher Recomendados (outros artistas)
         const recommended = [...db.artists]
             .filter(a => a.id !== artist.id)
-            .sort(() => 0.5 - Math.random()) // Aleatório
+            .sort(() => 0.5 - Math.random())
             .slice(0, 5);
         renderArtistsGrid('recommendedGrid', recommended);
 
-        // Mudar a view
         switchView('artistDetail');
     };
 
-    /**
-     * Abre a página de detalhes do álbum
-     */
     const openAlbumDetail = (albumId) => {
         const album = [...db.albums, ...db.singles].find(a => a.id === albumId);
         if (!album) {
@@ -578,18 +526,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             Por <strong class="artist-link" data-artist-name="${artistObj ? artistObj.name : ''}">${album.artist}</strong> • ${releaseDate}
         `;
 
-        // Preencher Tracklist
         const tracklistContainer = document.getElementById('albumTracklist');
+        // O seu novo CSS espera .track-row, mas o CSS antigo usava .chart-item.
+        // Vamos usar o .track-row que está no seu CSS de inspiração
         tracklistContainer.innerHTML = (album.tracks || []).map(song => {
             const artistName = formatArtistString(song.artistIds, song.collabType);
             return `
-                <div class="chart-item" data-song-id="${song.id}">
-                    <span class="chart-rank">${song.trackNumber}</span>
-                    <div class="chart-item-info">
-                        <span class="chart-item-title">${song.title}</span>
-                        <span class="chart-item-artist">${artistName}</span>
+                <div class="track-row" data-song-id="${song.id}">
+                    <span class="track-number">${song.trackNumber}</span>
+                    <div class="track-info">
+                        <span class="track-title">${song.title}</span>
+                        <span class="track-artist-feat">${artistName}</span>
                     </div>
-                    <span class="chart-item-duration">${song.duration}</span>
+                    <span class="track-duration">${song.duration}</span>
                 </div>
             `;
         }).join('');
@@ -597,13 +546,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         switchView('albumDetail');
     };
 
-    /**
-     * Abre a página de discografia completa (Álbuns ou Singles)
-     */
     const openDiscographyDetail = (type) => {
         if (!activeArtist) {
             console.error("Nenhum artista ativo para mostrar discografia.");
-            handleBack(); // Volta
+            handleBack(); 
             return;
         }
 
@@ -624,13 +570,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         switchView('discographyDetail');
     };
     
-    /**
-     * Filtra e exibe resultados da busca
-     */
     const handleSearch = () => {
         const query = searchInput.value.toLowerCase().trim();
         if (!query) {
-            // Se a busca estiver vazia, volta para a aba anterior (ou home)
             switchTab(null, 'homeSection');
             return;
         }
@@ -680,13 +622,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             resultsContainer.classList.add('hidden');
         }
 
-        // Muda para a aba de busca
         switchTab(null, 'searchSection');
     };
 
-    /**
-     * Configura o timer de contagem regressiva
-     */
     const setupCountdown = (timerId, callback) => {
         const timerElement = document.getElementById(timerId);
         if (!timerElement) return;
@@ -695,10 +633,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const now = new Date();
             const target = new Date(now);
             
-            // Próxima Segunda-Feira, 00:00
             let daysToMonday = (1 + 7 - now.getDay()) % 7;
-            if (daysToMonday === 0 && now.getHours() >= 0) {
-                 // Se hoje é segunda, pula para a próxima
+            if (daysToMonday === 0 && now.getHours() >= 0) { 
                 daysToMonday = 7;
             }
             target.setDate(now.getDate() + daysToMonday);
@@ -713,11 +649,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const distance = targetDate.getTime() - now;
 
             if (distance < 0) {
-                // Recalcula o próximo alvo
                 targetDate = calculateTargetDate();
-                // Roda o callback de atualização
                 if (callback) callback();
-                // Continua o timer
                 return;
             }
 
@@ -730,32 +663,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             timerElement.textContent = `${f(days)}d ${f(hours)}h ${f(minutes)}m ${f(seconds)}s`;
         };
         
-        updateTimer(); // Run once
-        setInterval(updateTimer, 1000); // Update every second
+        updateTimer(); 
+        setInterval(updateTimer, 1000); 
     };
 
     // --- 3. SISTEMA DE RPG (BRIGA DE CHARTS - APENAS VISUALIZAÇÃO) ---
     const CHART_TOP_N = 20;
     const STREAMS_PER_POINT = 10000;
     
-    /**
-     * Calcula streams simulados baseado em pontos e atividade
-     */
     const calculateSimulatedStreams = (points, lastActiveISO) => {
-        if (!lastActiveISO) return 0; // Se nunca esteve ativo, não tem streams
+        if (!lastActiveISO) return 0; 
         const now = new Date();
         const lastActive = new Date(lastActiveISO);
         const diffHours = Math.abs(now - lastActive) / 3600000;
         
-        // Fórmula: Cada ponto gera STREAMS_PER_POINT por dia.
         const streamsPerDay = (points || 0) * STREAMS_PER_POINT;
         const streamsPerHour = streamsPerDay / 24;
         return Math.floor(streamsPerHour * diffHours);
     };
     
-    /**
-     * Computa os dados do chart de RPG
-     */
     const computeChartData = (artistsArray) => {
         return artistsArray.map(artist => {
             const simulatedStreams = calculateSimulatedStreams(artist.RPGPoints, artist.LastActive);
@@ -766,16 +692,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 streams: simulatedStreams,
                 points: artist.RPGPoints || 0
             };
-        }).sort((a, b) => b.streams - a.streams) // Classifica por streams
-          .slice(0, CHART_TOP_N); // Pega o Top N
+        }).sort((a, b) => b.streams - a.streams) 
+          .slice(0, CHART_TOP_N); 
     };
 
-    /**
-     * Renderiza o chart de RPG (que vai na aba 'Artistas' -> 'artistsGrid')
-     */
     function renderRPGChart() {
         const chartData = computeChartData(db.artists);
-        const container = document.getElementById('artistsGrid'); // Popula o 'artistsGrid'
+        const container = document.getElementById('artistsGrid'); 
         
          if (!container) {
             console.error("Container 'artistsGrid' não encontrado para o RPG Chart.");
@@ -799,9 +722,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- 4. SISTEMA DO ESTÚDIO (LOGIN E FORMULÁRIOS COM FEATS) ---
     
-    /**
-     * Popula os <select> de artista do jogador logado
-     */
     function populateArtistSelector(playerId) {
         const player = db.players.find(p => p.id === playerId);
         if (!player) return;
@@ -816,9 +736,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         albumArtistSelect.innerHTML = `<option value="">Selecione...</option>${artistOptions}`;
     }
 
-    /**
-     * Loga o jogador no estúdio
-     */
     function loginPlayer(playerId) {
         if (!playerId) {
             alert("Por favor, selecione um jogador.");
@@ -834,9 +751,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    /**
-     * Desloga o jogador do estúdio
-     */
     function logoutPlayer() {
         currentPlayer = null;
         document.getElementById('playerName').textContent = '';
@@ -845,14 +759,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         studioLaunchWrapper.classList.add('hidden');
     }
     
-    /**
-     * Popula o <select> de artistas no modal de feat
-     */
     function populateFeatModalArtistSelect() {
-        // Popula com TODOS os artistas, exceto o artista principal selecionado
         let currentMainArtistId = null;
         
-        // Verifica qual formulário está ativo
         if (document.getElementById('newSingleForm').classList.contains('active')) {
             currentMainArtistId = singleArtistSelect.value;
         } else {
@@ -860,23 +769,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         featArtistSelect.innerHTML = db.artists
-            .filter(a => a.id !== currentMainArtistId) // Filtra o artista principal
-            .sort((a,b) => a.name.localeCompare(b.name)) // Ordena por nome
+            .filter(a => a.id !== currentMainArtistId) 
+            .sort((a,b) => a.name.localeCompare(b.name)) 
             .map(a => `<option value="${a.id}">${a.name}</option>`)
             .join('');
     }
 
-    /**
-     * Abre o modal de feat
-     */
     function openFeatModal(buttonElement) {
-        // `buttonElement` é o botão "+ Adicionar Feat"
         const targetType = buttonElement.dataset.target;
         
         if (targetType === 'single') {
             currentFeatTarget = document.getElementById('singleFeatList');
         } else {
-            // targetType é o ID do input da faixa (ex: 'track_uuid_123')
             currentFeatTarget = document.getElementById(targetType);
         }
 
@@ -889,21 +793,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         featModal.classList.remove('hidden');
     }
 
-    /**
-     * Fecha o modal de feat
-     */
     function closeFeatModal() {
         featModal.classList.add('hidden');
         currentFeatTarget = null;
     }
 
-    /**
-     * Confirma a adição do feat e cria o 'tag'
-     */
     function confirmFeat() {
         const artistId = featArtistSelect.value;
         const artistName = featArtistSelect.options[featArtistSelect.selectedIndex].text;
-        const featType = featTypeSelect.value; // "Feat." ou "Dueto/Grupo"
+        const featType = featTypeSelect.value; 
 
         if (!artistId || !currentFeatTarget) return;
 
@@ -912,10 +810,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         featTag.textContent = `${featType} ${artistName}`;
         featTag.dataset.artistId = artistId;
         featTag.dataset.featType = featType;
-        featTag.addEventListener('click', () => featTag.remove()); // Clica para remover
+        featTag.addEventListener('click', () => featTag.remove()); 
 
         if (currentFeatTarget.id === 'singleFeatList') {
-            // É o formulário de single
             currentFeatTarget.appendChild(featTag);
         } else {
             // É um input de faixa de álbum, anexa ao lado
@@ -925,20 +822,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         closeFeatModal();
     }
     
-    /**
-     * Inicializa todos os listeners do Estúdio
-     */
     function initializeStudio() {
-        // Popula o select de jogadores
         if (!playerSelect) return;
         playerSelect.innerHTML = '<option value="">Selecione...</option>' + 
             db.players.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
 
-        // Listeners do Studio
         loginButton.addEventListener('click', () => loginPlayer(playerSelect.value));
         logoutButton.addEventListener('click', logoutPlayer);
         
-        // Listeners das Abas do Studio
         studioTabs.forEach(tab => {
             tab.addEventListener('click', (e) => {
                 studioTabs.forEach(t => t.classList.remove('active'));
@@ -950,25 +841,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         });
         
-        // Listeners do Modal
         confirmFeatBtn.addEventListener('click', confirmFeat);
         cancelFeatBtn.addEventListener('click', closeFeatModal);
 
-        // Listener para *abrir* o modal (delegado, pois botões são criados dinamicamente)
         studioLaunchWrapper.addEventListener('click', (e) => {
-            if (e.target.closest('.add-feat-btn')) { // Usar closest para pegar o ícone
+            if (e.target.closest('.add-feat-btn')) { 
                 openFeatModal(e.target.closest('.add-feat-btn'));
             }
         });
 
-        // Listener do formulário de álbum
         addTrackButton.addEventListener('click', addNewTrackInput);
         initAlbumForm();
     }
     
-    /**
-     * Helper para criar um único registro no Airtable
-     */
     async function createAirtableRecord(tableName, fields) {
         const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${tableName}`;
         try {
@@ -992,7 +877,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
     
-    // Helper para converter "3:45" para 225 segundos
     function parseDurationToSeconds(durationStr) {
         const parts = durationStr.split(':');
         if (parts.length !== 2) return 0;
@@ -1001,9 +885,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         return (minutes * 60) + seconds;
     }
     
-    /**
-     * Manipula o envio do formulário de Single
-     */
     async function handleSingleSubmit(event) {
         event.preventDefault();
         const submitBtn = document.getElementById('submitNewSingle');
@@ -1018,26 +899,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             const trackDurationStr = document.getElementById('trackDuration').value;
             const trackDurationSec = parseDurationToSeconds(trackDurationStr);
 
-            // 1. Criar o 'Single/EP'
             const singleRecord = await createAirtableRecord('Singles e EPs', {
                 "Nome do Single/EP": singleTitle,
                 "Artista": [artistId],
                 "Capa": [{ "url": coverUrl }],
-                "Data de Lançamento": new Date().toISOString().split('T')[0] // Hoje
+                "Data de Lançamento": new Date().toISOString().split('T')[0] 
             });
 
             if (!singleRecord || !singleRecord.id) {
                 throw new Error("Falha ao criar o registro do Single.");
             }
 
-            // 2. Coletar Feats
             const featTags = document.querySelectorAll('#singleFeatList .feat-tag');
             const featArtistIds = Array.from(featTags).map(tag => tag.dataset.artistId);
             const allArtistIds = [artistId, ...featArtistIds];
-            // Pega o tipo de collab do *primeiro* feat, se houver
             const collabType = featTags.length > 0 ? featTags[0].dataset.featType : null;
 
-            // 3. Criar a 'Música'
             await createAirtableRecord('Músicas', {
                 "Nome da Faixa": trackName,
                 "Artista": allArtistIds,
@@ -1050,7 +927,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             alert("Single lançado com sucesso!");
             newSingleForm.reset();
             document.getElementById('singleFeatList').innerHTML = '';
-            await refreshAllData(); // Atualiza o DB local
+            await refreshAllData(); 
 
         } catch (error) {
             alert("Erro ao lançar o single. Verifique o console.");
@@ -1061,11 +938,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
     
-    /**
-     * Inicializa o formulário de álbum (adiciona 1ª faixa e Sortable)
-     */
     function initAlbumForm() {
-        addNewTrackInput(); // Adiciona a primeira faixa
+        addNewTrackInput(); 
         if (albumTracklistEditor && typeof Sortable !== 'undefined') {
             albumTracklistSortable = Sortable.create(albumTracklistEditor, {
                 animation: 150,
@@ -1077,25 +951,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
     
-    /**
-     * Adiciona um novo campo de faixa ao formulário de álbum
-     */
+    // ATUALIZADO: O HTML do 'addNewTrackInput' foi refeito para bater com o CSS de inspiração
     function addNewTrackInput() {
         const trackId = `track_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
         const trackCount = albumTracklistEditor.children.length + 1;
         
         const newTrackEl = document.createElement('div');
-        newTrackEl.className = 'album-track-input';
+        newTrackEl.className = 'track-list-item'; // CSS: .track-list-item
         newTrackEl.innerHTML = `
-            <i class="fas fa-bars drag-handle"></i>
-            <span class="track-number">${trackCount}.</span>
-            <div class="track-inputs">
-                <input type="text" class="track-name-input" placeholder="Nome da Faixa" required>
-                <input type="text" class="track-duration-input" placeholder="Duração (MM:SS)" pattern="\\d{1,2}:\\d{2}" required>
-                <div class="feat-list-album"></div>
+            <div class="track-main-row">
+                <i class="fas fa-bars drag-handle"></i>
+                <div class="track-inputs">
+                    <span class="track-number">${trackCount}.</span>
+                    <input type="text" class="track-name-input" placeholder="Nome da Faixa" required>
+                    <input type="text" class="track-duration-input" placeholder="MM:SS" pattern="\\d{1,2}:\\d{2}" required>
+                </div>
+                <button type="button" class="small-btn add-feat-btn" data-target="${trackId}"><i class="fas fa-plus"></i> Feat</button>
+                <button type="button" class="small-btn remove-track-btn delete-track-btn"><i class="fas fa-times"></i></button>
             </div>
-            <button type="button" class="small-btn add-feat-btn" data-target="${trackId}"><i class="fas fa-plus"></i> Feat</button>
-            <button type="button" class="small-btn remove-track-btn"><i class="fas fa-times"></i></button>
+            <div class="feat-section">
+                <div class="feat-list feat-list-album">
+                    </div>
+            </div>
             <div id="${trackId}" class="feat-target-hidden"></div> 
         `;
         
@@ -1107,21 +984,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         albumTracklistEditor.appendChild(newTrackEl);
     }
 
-    /**
-     * Atualiza os números das faixas (usado pelo Sortable)
-     */
     function updateTrackNumbers() {
-        const tracks = albumTracklistEditor.querySelectorAll('.album-track-input');
+        const tracks = albumTracklistEditor.querySelectorAll('.track-list-item');
         tracks.forEach((track, index) => {
             track.querySelector('.track-number').textContent = `${index + 1}.`;
         });
     }
 
-    /**
-     * Helper para criar múltiplos registros no Airtable em lote
-     */
     async function batchCreateAirtableRecords(tableName, records) {
-        // Airtable API permite 10 registros por vez no endpoint de 'create'
         const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${tableName}`;
         const chunks = [];
         
@@ -1151,15 +1021,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 
             } catch (error) {
                 console.error("Falha na requisição para batchCreateAirtableRecords:", error);
-                return null; // Falha no lote
+                return null; 
             }
         }
-        return results; // Sucesso
+        return results; 
     }
 
-    /**
-     * Manipula o envio do formulário de Álbum/EP
-     */
     async function handleAlbumSubmit(event) {
         event.preventDefault();
         const submitBtn = document.getElementById('submitNewAlbum');
@@ -1171,8 +1038,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const albumTitle = document.getElementById('albumTitle').value;
             const coverUrl = document.getElementById('albumCoverUrl').value;
             
-            // 1. Criar o 'Álbum' (ou 'Single/EP' dependendo da duração total)
-            const trackElements = albumTracklistEditor.querySelectorAll('.album-track-input');
+            const trackElements = albumTracklistEditor.querySelectorAll('.track-list-item');
             let totalDurationSec = 0;
             
             const musicRecordsToCreate = [];
@@ -1194,7 +1060,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                     "Duração": durationSec,
                     "Nº da Faixa": index + 1,
                     "Tipo de Colaboração": collabType
-                    // O link do álbum/single será adicionado depois
                 });
             });
             
@@ -1202,13 +1067,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 throw new Error("O álbum precisa de pelo menos uma faixa.");
             }
 
-            // Decidir se é Álbum ou Single/EP
             const isAlbum = totalDurationSec >= (30 * 60); // 30 minutos
             const tableName = isAlbum ? 'Álbuns' : 'Singles e EPs';
             const nameField = isAlbum ? 'Nome do Álbum' : 'Nome do Single/EP';
             const coverField = isAlbum ? 'Capa do Álbum' : 'Capa';
 
-            // 2. Criar o registro do Álbum/Single
             const releaseRecord = await createAirtableRecord(tableName, {
                 [nameField]: albumTitle,
                 "Artista": [artistId],
@@ -1220,25 +1083,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                 throw new Error("Falha ao criar o registro do álbum/EP.");
             }
             
-            // 3. Adicionar o link do álbum/single a CADA faixa
             const releaseLinkField = isAlbum ? 'Álbuns' : 'Singles e EPs';
             musicRecordsToCreate.forEach(record => {
                 record[releaseLinkField] = [releaseRecord.id];
             });
 
-            // 4. Criar todas as 'Músicas' em lote
             const createdSongs = await batchCreateAirtableRecords('Músicas', musicRecordsToCreate);
             
             if (!createdSongs || createdSongs.length !== musicRecordsToCreate.length) {
-                // TODO: Adicionar lógica para deletar o álbum se as músicas falharem (rollback)
                 throw new Error("Falha ao criar as faixas no Airtable.");
             }
             
             alert("Álbum/EP lançado com sucesso!");
             newAlbumForm.reset();
             albumTracklistEditor.innerHTML = '';
-            initAlbumForm(); // Adiciona a primeira faixa de volta
-            await refreshAllData(); // Atualiza o DB local
+            initAlbumForm(); 
+            await refreshAllData(); 
 
         } catch (error) {
             alert("Erro ao lançar o álbum. Verifique o console.");
@@ -1249,18 +1109,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
     
-    /**
-     * Renderiza a lista de músicas com participações
-     */
     function renderParticipacoes() {
         if (!participacoesList) {
              console.error("Elemento 'participacoesList' não encontrado.");
              return;
         }
         
-        // Encontra músicas com mais de 1 artista
         const featSongs = db.songs.filter(s => s.artistIds && s.artistIds.length > 1)
-                                  .sort((a,b) => (b.streams || 0) - (a.streams || 0)); // Ordena por streams
+                                  .sort((a,b) => (b.streams || 0) - (a.streams || 0)); 
         
         if (featSongs.length === 0) {
             participacoesList.innerHTML = '<p class="empty-state">Nenhuma música com participação encontrada.</p>';
@@ -1281,16 +1137,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- 5. INICIALIZAÇÃO GERAL ---
     
-    /**
-     * Inicializa o listener de clique global para elementos dinâmicos
-     */
     function initializeBodyClickListener() {
         document.body.addEventListener('click', (e) => {
-            // Procura pelos elementos mais próximos que têm os data-attributes
             const artistCard = e.target.closest('.artist-card[data-artist-name]');
-            const albumCard = e.target.closest('[data-album-id]'); // Pega .scroll-item, .chart-item, etc.
-            const artistLink = e.target.closest('.artist-link[data-artist-name]'); // Link de artista na pág de álbum
-            const discogLink = e.target.closest('.see-all-btn[data-type]'); // Link "Ver Todos"
+            // CORRIGIDO: Agora também escuta por .song-row e .track-row
+            const albumCard = e.target.closest('[data-album-id]'); 
+            const songCard = e.target.closest('.song-row[data-song-id], .track-row[data-song-id]');
+            const artistLink = e.target.closest('.artist-link[data-artist-name]'); 
+            const discogLink = e.target.closest('.see-all-btn[data-type]'); 
 
             if (discogLink) {
                 openDiscographyDetail(discogLink.dataset.type);
@@ -1302,22 +1156,24 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
             
-            // Checa artistCard PRIMEIRO
             if (artistCard) {
                 openArtistDetail(artistCard.dataset.artistName);
                 return;
             }
             
-            // Checa artistLink DEPOIS (menos prioritário)
             if (artistLink && !artistCard) {
                  openArtistDetail(artistLink.dataset.artistName);
                 return;
             }
+
+            if (songCard) {
+                // Ação de clique na música (ex: tocar música)
+                console.log("Clicou na música ID:", songCard.dataset.songId);
+                // (Implementar player de música aqui se desejar)
+            }
         });
         
-        // Listener da Barra de Busca
         searchInput.addEventListener('input', handleSearch);
-        // Também trata o 'Enter' como busca, embora 'input' já cubra
         searchInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 handleSearch();
@@ -1325,18 +1181,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // --- Ponto de Partida ---
     async function main() {
         console.log("Iniciando Aplicação...");
-        if (!initializeDOMElements()) return; // Para se o DOM não carregar
+        if (!initializeDOMElements()) return; 
         
-        // Mostra um 'loading' global (opcional, mas recomendado)
         document.body.classList.add('loading'); 
 
         const data = await loadAllData();
 
         if (data && data.allArtists) {
-            if (!initializeData(data)) return; // Para se o processamento de dados falhar
+            if (!initializeData(data)) return; 
 
             try {
                 initializeStudio();
@@ -1344,20 +1198,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (newSingleForm) newSingleForm.addEventListener('submit', handleSingleSubmit);
                 if (newAlbumForm) newAlbumForm.addEventListener('submit', handleAlbumSubmit);
 
-                // Renderiza os componentes principais
-                renderRPGChart(); // Popula 'artistsGrid' com o chart de RPG
+                renderRPGChart(); 
                 
                 const allNavs = [...document.querySelectorAll('.nav-tab'), ...document.querySelectorAll('.bottom-nav-item')];
                 allNavs.forEach(nav => {
                     nav.removeEventListener('click', switchTab);
                     nav.addEventListener('click', switchTab);
                 });
-
-                // Popula 'homeGrid' com artistas aleatórios
-                renderArtistsGrid('homeGrid', [...(db.artists || [])].sort(() => 0.5 - Math.random()).slice(0, 10)); 
                 
-                // ** CORREÇÃO: Linha abaixo removida pois 'renderRPGChart()' já popula 'artistsGrid' **
-                // renderArtistsGrid('artistsGrid', db.artists || []); 
+                renderArtistsGrid('homeGrid', [...(db.artists || [])].sort(() => 0.5 - Math.random()).slice(0, 10)); 
                 
                 renderChart('music');
                 renderChart('album');
@@ -1367,7 +1216,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 initializeBodyClickListener();
                 document.querySelectorAll('.back-btn').forEach(btn => btn.addEventListener('click', handleBack));
 
-                switchTab(null, 'homeSection'); // Mostra a aba inicial
+                switchTab(null, 'homeSection'); 
 
                 console.log("Aplicação Iniciada e Configurada.");
 
@@ -1381,10 +1230,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.error("Initialization failed due to critical data loading error.");
         }
         
-        // Remove o 'loading'
         document.body.classList.remove('loading');
     }
 
-    main(); // Run the initialization sequence
+    main(); 
 
 });
