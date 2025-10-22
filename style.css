@@ -602,6 +602,92 @@ body {
   color: var(--text-secondary);
 }
 
+/* --- ESTILOS DO ESTÚDIO (NOVO) --- */
+.studio-subtitle {
+  color: var(--text-secondary);
+  font-size: 14px;
+  margin-top: -12px;
+  margin-bottom: 24px;
+}
+
+.studio-form {
+  background-color: var(--background-secondary);
+  padding: 24px;
+  border-radius: 12px;
+}
+
+.studio-form h3 {
+  color: var(--spotify-green);
+  margin-bottom: 20px;
+}
+.studio-form h4 {
+  margin-bottom: 16px;
+  margin-top: 12px;
+}
+
+.form-divider {
+  border: none;
+  border-top: 1px solid var(--background-tertiary);
+  margin: 24px 0;
+}
+
+.studio-form-group {
+  margin-bottom: 16px;
+}
+
+.studio-form-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.studio-form-group input,
+.studio-form-group select {
+  width: 100%;
+  background-color: var(--background-tertiary);
+  border: 1px solid #535353;
+  color: var(--text-primary);
+  padding: 14px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: "Montserrat", sans-serif;
+}
+
+.studio-form-group input::placeholder {
+  color: #757575;
+}
+
+.submit-btn {
+  background-color: var(--spotify-green);
+  color: black;
+  border: none;
+  padding: 16px 24px;
+  width: 100%;
+  border-radius: 500px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 16px;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.submit-btn:hover:not(:disabled) {
+  transform: scale(1.02);
+  background-color: #1ed760;
+}
+
+.submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.bottom-nav-item .fa-microphone-alt {
+  font-size: 22px;
+}
+
 /* ========================================================== */
 /* ============= MELHORIAS PARA DESKTOP (PC) ================ */
 /* ========================================================== */
