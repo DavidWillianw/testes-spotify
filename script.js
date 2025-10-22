@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', async () => {
 
-    // --- VARIÁVEIS GLOBAIS tentativa2---
+    // --- VARIÁVEIS GLOBAIS ---
     let db = { artists: [], albums: [], songs: [], players: [] };
     let currentPlayer = null;
     let albumTracklistSortable = null;
@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- FUNÇÃO PARA INICIALIZAR ELEMENTOS DO DOM ---
     function initializeDOMElements() {
+        console.log("Initializing DOM elements..."); // Log added
         allViews = document.querySelectorAll('.page-view');
         searchInput = document.getElementById('searchInput');
         studioView = document.getElementById('studioView');
@@ -44,59 +45,56 @@ document.addEventListener('DOMContentLoaded', async () => {
         cancelFeatBtn = document.getElementById('cancelFeatBtn');
         participacoesList = document.getElementById('participacoesList');
 
-        if (!studioView || !loginPrompt || !playerSelect || !newSingleForm || !newAlbumForm || !featModal) {
-             console.error("ERRO CRÍTICO: Elementos essenciais do HTML não foram encontrados!");
+        // Check if essential elements exist
+        if (!studioView || !loginPrompt || !playerSelect || !newSingleForm || !newAlbumForm || !featModal || !allViews || allViews.length === 0) {
+             console.error("ERRO CRÍTICO: Elementos essenciais do HTML não foram encontrados! Verifique IDs: studioView, loginPrompt, playerSelect, newSingleForm, newAlbumForm, featModal, .page-view");
+             // Display error prominently if core elements are missing
+             document.body.innerHTML = '<div style="color: red; padding: 20px; text-align: center;"><h1>Erro de Interface</h1><p>Elementos essenciais da página não foram encontrados. Verifique o HTML e os IDs.</p></div>';
+             return false; // Indicate failure
         }
+        console.log("DOM elements initialized.");
+        return true; // Indicate success
     }
 
 
     // --- 1. CARREGAMENTO DE DADOS ---
     async function loadAllData() {
-        // ... (loadAllData function remains the same as the previous version) ...
+        // ... (loadAllData function remains the same) ...
         const artistsURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Artists?filterByFormula=%7BArtista%20Principal%7D%3D1`;
         const albumsURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Álbuns`;
         const musicasURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Músicas`;
         const singlesURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Singles%20e%20EPs`;
         const playersURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Jogadores`;
-
         const fetchOptions = { headers: { 'Authorization': `Bearer ${AIRTABLE_API_KEY}` } };
         console.log("Iniciando carregamento de dados...");
-
         try {
             const [artistsResponse, albumsResponse, musicasResponse, singlesResponse, playersResponse] = await Promise.all([
                 fetch(artistsURL, fetchOptions), fetch(albumsURL, fetchOptions),
                 fetch(musicasURL, fetchOptions), fetch(singlesURL, fetchOptions),
                 fetch(playersURL, fetchOptions)
             ]);
-
             if (!artistsResponse.ok || !albumsResponse.ok || !musicasResponse.ok || !singlesResponse.ok || !playersResponse.ok) {
                 console.error("Falha ao carregar Airtable:", { artists: artistsResponse.status, albums: albumsResponse.status, musicas: musicasResponse.status, singles: singlesResponse.status, players: playersResponse.status });
                 throw new Error('Falha ao carregar dados Airtable.');
             }
-
             const artistsData = await artistsResponse.json();
             const albumsData = await albumsResponse.json();
             const musicasData = await musicasResponse.json();
             const singlesData = await singlesResponse.json();
             const playersData = await playersResponse.json();
-
             // --- RECONSTRUÇÃO ---
             const musicasMap = new Map();
              (musicasData.records || []).forEach(record => {
                  const artistIdsFromServer = record.fields['Artista'] || [];
                  const artistIds = Array.isArray(artistIdsFromServer) ? artistIdsFromServer : [artistIdsFromServer];
-                 // ** GUARDA O ID DO ALBUM/SINGLE PAI DIRETAMENTE NA MUSICA **
                  const parentReleaseId = (record.fields['Álbuns'] && record.fields['Álbuns'][0]) || (record.fields['Singles e EPs'] && record.fields['Singles e EPs'][0]) || null;
-
                 musicasMap.set(record.id, {
-                    id: record.id, title: record.fields['Nome da Faixa'] || 'Faixa Sem Título', // Add default title
+                    id: record.id, title: record.fields['Nome da Faixa'] || 'Faixa Sem Título',
                     duration: record.fields['Duração'] ? new Date(record.fields['Duração'] * 1000).toISOString().substr(14, 5) : "00:00",
                     trackNumber: record.fields['Nº da Faixa'] || 0, durationSeconds: record.fields['Duração'] || 0,
-                    artistIds: artistIds, collabType: record.fields['Tipo de Colaboração'],
-                    albumId: parentReleaseId // <-- Guarda o ID do pai aqui
+                    artistIds: artistIds, collabType: record.fields['Tipo de Colaboração'], albumId: parentReleaseId
                 });
             });
-
             const artistsMapById = new Map();
              const artistsList = (artistsData.records || []).map(record => {
                 const artist = {
@@ -107,44 +105,30 @@ document.addEventListener('DOMContentLoaded', async () => {
                  artistsMapById.set(artist.id, artist.name);
                 return artist;
             });
-
-            const formatReleases = (records, isAlbumTable) => { // Added flag
+            const formatReleases = (records, isAlbumTable) => {
                  if (!records) return [];
                 return records.map(record => {
                     const fields = record.fields;
-                    // ** MUDANÇA: PEGA TRACK IDS DIRETAMENTE DO MAPA DE MUSICAS PELO PARENT ID **
                     const recordId = record.id;
-                    const tracks = Array.from(musicasMap.values()).filter(song => song.albumId === recordId);
-
+                    const tracks = Array.from(musicasMap.values()).filter(song => song.albumId === recordId); // Find tracks by parent ID
                     const totalDurationSeconds = tracks.reduce((total, track) => total + (track.durationSeconds || 0), 0);
                     const mainArtistIdFromServer = fields['Artista'] || [];
                     const mainArtistId = Array.isArray(mainArtistIdFromServer) ? mainArtistIdFromServer[0] : mainArtistIdFromServer;
                     const mainArtistName = mainArtistId ? artistsMapById.get(mainArtistId) : "Artista Desconhecido";
-
-                    // Determina a URL da capa baseado na tabela
                     const imageUrlField = isAlbumTable ? 'Capa do Álbum' : 'Capa';
                     const imageUrl = (fields[imageUrlField] && fields[imageUrlField][0]?.url) || 'https://i.imgur.com/AD3MbBi.png';
-
-
                     return {
-                        id: record.id, title: fields['Nome do Álbum'] || fields['Nome do Single/EP'] || 'Título Indisponível', // Add default
-                        artist: mainArtistName, artistId: mainArtistId,
-                        metascore: fields['Metascore'] || 0, imageUrl: imageUrl,
-                        releaseDate: fields['Data de Lançamento'] || '2024-01-01',
-                        // tracks: tracks, // Não precisa mais guardar os objetos track aqui
-                        track_ids: tracks.map(t => t.id), // Guarda apenas os IDs se precisar
-                        totalDurationSeconds: totalDurationSeconds
+                        id: record.id, title: fields['Nome do Álbum'] || fields['Nome do Single/EP'] || 'Título Indisponível', artist: mainArtistName, artistId: mainArtistId,
+                        metascore: fields['Metascore'] || 0, imageUrl: imageUrl, releaseDate: fields['Data de Lançamento'] || '2024-01-01',
+                        track_ids: tracks.map(t => t.id), totalDurationSeconds: totalDurationSeconds
                     };
                 });
             };
-
-            const formattedAlbums = formatReleases(albumsData.records, true); // Passa true para álbuns
-            const formattedSingles = formatReleases(singlesData.records, false); // Passa false para singles
-
+            const formattedAlbums = formatReleases(albumsData.records, true);
+            const formattedSingles = formatReleases(singlesData.records, false);
              const formattedPlayers = (playersData.records || []).map(record => ({
                 id: record.id, name: record.fields.Nome, artists: record.fields.Artistas || []
             }));
-
             console.log("Dados carregados com sucesso.");
             return {
                 allArtists: artistsList, albums: formattedAlbums, singles: formattedSingles,
@@ -152,34 +136,34 @@ document.addEventListener('DOMContentLoaded', async () => {
             };
         } catch (error) {
             console.error("Falha GERAL ao carregar dados:", error);
-            return null; // Return null on critical failure
+            return null;
         }
     }
 
     /**
      * Coloca os dados carregados no banco de dados local 'db'
-     * (VERSÃO SIMPLIFICADA SEM LOOKUP INTERNO)
+     * (VERSÃO SIMPLIFICADA SEM LOOKUP INTERNO v2)
      */
     const initializeData = (data) => {
          try {
             db.artists = data.allArtists || [];
-            db.albums = [...(data.albums || []), ...(data.singles || [])]; // Combina releases
+            db.albums = [...(data.albums || []), ...(data.singles || [])];
             db.players = data.players || [];
-            db.songs = data.musicas || []; // Usa a lista completa de músicas diretamente
+            db.songs = data.musicas || [];
 
-             if (db.artists.length === 0) console.warn("Nenhum artista carregado.");
-             if (db.albums.length === 0) console.warn("Nenhum álbum/single carregado.");
-             if (db.songs.length === 0) console.warn("Nenhuma música carregada.");
-             if (db.players.length === 0) console.warn("Nenhum jogador carregado.");
+             if (!db.artists || db.artists.length === 0) console.warn("Nenhum artista carregado/processado.");
+             if (!db.albums || db.albums.length === 0) console.warn("Nenhum álbum/single carregado/processado.");
+             if (!db.songs || db.songs.length === 0) console.warn("Nenhuma música carregada/processada.");
+             if (!db.players || db.players.length === 0) console.warn("Nenhum jogador carregado/processado.");
 
-            // Adiciona streams aleatórios e garante artistIds array
+            // Add streams and ensure artistIds array (Cover lookup moved to render functions)
             db.songs.forEach(song => {
                 if (!song.streams) song.streams = Math.floor(Math.random() * 25000000) + 50000;
                 if (!Array.isArray(song.artistIds)) song.artistIds = song.artistIds ? [song.artistIds] : [];
-                // *** REMOVIDO: Busca de albumId e cover - será feita dinamicamente ***
+                 // ** REMOVED: Album lookup removed from here **
             });
 
-            // Adiciona referência aos álbuns/singles dentro de cada artista
+             // Add album/single references to artist objects
              db.artists.forEach(artist => {
                 const artistReleases = db.albums.filter(a => a.artistId === artist.id);
                 const thirtyMinutesInSeconds = 30 * 60;
@@ -188,10 +172,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
 
             console.log("DB Inicializado.");
+            return true; // Indicate success
          } catch (error) {
              console.error("Erro CRÍTICO durante initializeData:", error);
              alert("Ocorreu um erro MUITO GRAVE ao inicializar os dados. A aplicação pode não funcionar. Verifique o console.");
-             throw error; // Interrompe a execução
+             return false; // Indicate failure
          }
     };
 
@@ -200,100 +185,130 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- 2. NAVEGAÇÃO E UI ---
 
-    const switchView = (viewId, targetSectionId = null) => { /* ... sem mudanças ... */ };
-    const switchTab = (event, forceTabId = null) => { /* ... sem mudanças ... */ };
-    const handleBack = () => { /* ... sem mudanças ... */ };
-    // Event listener for back buttons attached later
+    /**
+     * Handles showing/hiding the main page views (.page-view divs).
+     * Also manages view history, top bar visibility, and content section activation.
+     * (VERSÃO CORRIGIDA E CENTRALIZADA v3 - Simplified History)
+     */
+     const switchView = (viewId, targetSectionId = null) => {
+        console.log(`Switching view to: ${viewId}, Target Section: ${targetSectionId}`);
+        if (!allViews || allViews.length === 0) { console.error("allViews not initialized or empty!"); return; }
 
-    const renderArtistsGrid = (containerId, artists) => { /* ... sem mudanças ... */ };
+        // 1. Hide all page views
+        allViews.forEach(v => v.classList.add('hidden'));
+
+        // 2. Find and show the target view
+        const targetViewElement = document.getElementById(viewId);
+        if (targetViewElement) {
+            targetViewElement.classList.remove('hidden');
+
+            // 3. Manage Top Bar
+            const topBar = document.querySelector('.topbar');
+            if (topBar) topBar.classList.toggle('hidden', viewId !== 'mainView');
+
+            // 4. Update History (Simple push, handleBack manages popping)
+             if (!Array.isArray(viewHistory)) viewHistory = [];
+            viewHistory.push(viewId); // Always push, back button will handle duplicates
+
+            // 5. Activate Content Section *if* target is mainView
+            if (viewId === 'mainView') {
+                 const mainViewElement = document.getElementById('mainView');
+                 const sectionIdToActivate = targetSectionId || viewHistory[viewHistory.length-2] || 'homeSection'; // Try previous, default home
+                 console.log(`Activating section #${sectionIdToActivate} in mainView`);
+                mainViewElement.querySelectorAll('.content-section').forEach(s => s.classList.remove('active')); // Deactivate all
+                const sectionToActivate = mainViewElement.querySelector(`#${sectionIdToActivate}`);
+                if (sectionToActivate && sectionToActivate.classList.contains('content-section')) {
+                    sectionToActivate.classList.add('active');
+                } else {
+                    console.warn(`Section #${sectionIdToActivate} not found in mainView. Activating homeSection.`);
+                    document.getElementById('homeSection')?.classList.add('active'); // Fallback
+                }
+            }
+            window.scrollTo(0, 0);
+        } else {
+            console.error(`View element with ID "${viewId}" not found! Falling back to mainView.`);
+            // Explicitly push mainView to history before calling switchView to prevent infinite loop
+             if (!Array.isArray(viewHistory)) viewHistory = [];
+             viewHistory.push('mainView');
+            switchView('mainView', 'homeSection');
+        }
+         console.log("View history:", viewHistory);
+    };
+
+    /**
+     * Handles clicks on navigation tabs (top and bottom).
+     * Determines the target view and section, then calls switchView.
+     * (VERSÃO SIMPLIFICADA v3)
+     */
+    const switchTab = (event, forceTabId = null) => {
+        const tabId = forceTabId || (event?.currentTarget ? event.currentTarget.dataset.tab : 'homeSection');
+        const isTargetingStudio = (tabId === 'studioSection');
+        console.log(`Tab clicked: ${tabId}`);
+
+        let targetViewId = 'mainView';
+        let targetSectionId = tabId;
+
+        if (isTargetingStudio) {
+            targetViewId = 'studioView';
+            targetSectionId = null;
+        }
+
+        // Call switchView which handles everything
+        switchView(targetViewId, targetSectionId);
+
+        // Update button active states
+        const dynamicAllNavs = [...document.querySelectorAll('.nav-tab'), ...document.querySelectorAll('.bottom-nav-item')];
+        dynamicAllNavs.forEach(nav => {
+            nav.classList.toggle('active', nav.dataset.tab === tabId);
+        });
+    };
+
+
+    const handleBack = () => {
+         if (!Array.isArray(viewHistory)) viewHistory = []; // Safety check
+        if (viewHistory.length > 1) {
+             viewHistory.pop(); // Remove the current view from history
+             const previousViewId = viewHistory[viewHistory.length - 1]; // Get the view to return to
+            // switchView will handle showing the view and activating default section if it's mainView
+            switchView(previousViewId);
+
+             // Update nav highlights based on the view we returned to
+            const activeTabId = previousViewId === 'studioView' ? 'studioSection' : (document.querySelector('#mainView .content-section.active')?.id || 'homeSection');
+             const dynamicAllNavs = [...document.querySelectorAll('.nav-tab'), ...document.querySelectorAll('.bottom-nav-item')];
+            dynamicAllNavs.forEach(nav => {
+                nav.classList.toggle('active', nav.dataset.tab === activeTabId);
+            });
+
+        } else {
+             console.log("Cannot go back further.");
+        }
+    };
+    // Back button listeners attached in main()
+
+    const renderArtistsGrid = (containerId, artists) => {
+        const container = document.getElementById(containerId);
+        if (!container) { console.warn(`!!!! Container com ID "${containerId}" NÃO encontrado !!!!`); return; }
+        if (!Array.isArray(artists)) { console.warn(`!!!! Tentando renderizar em "${containerId}" mas 'artists' não é array !!!!`, artists); container.innerHTML = '<p style="color: red;">Erro: Dados inválidos.</p>'; return; }
+        console.log(`Renderizando ${artists.length} artistas em #${containerId}`);
+        container.innerHTML = '';
+        if (artists.length === 0) { container.innerHTML = '<p>Nenhum artista para exibir.</p>'; return; }
+        artists.forEach(artist => {
+            const card = document.createElement('div');
+            card.className = 'artist-card';
+            card.dataset.artistName = artist.name;
+            const imageUrl = artist.imageUrl || 'https://i.imgur.com/AD3MbBi.png';
+            card.innerHTML = `<img src="${imageUrl}" alt="${artist.name || ''}"><h3>${artist.name || ''}</h3>`;
+            container.appendChild(card);
+        });
+         console.log(`#${containerId} populado.`);
+    };
+
     function formatArtistString(artistIds, collabType) { /* ... sem mudanças ... */ }
-
-    /** Busca a URL da capa de um álbum/single pelo ID */
-    function getCoverUrl(albumId) {
-        if (!albumId) return 'https://i.imgur.com/AD3MbBi.png';
-        const album = db.albums.find(a => a.id === albumId);
-        return album ? album.imageUrl : 'https://i.imgur.com/AD3MbBi.png';
-    }
-
-
-    const renderChart = (type) => {
-        const container = document.getElementById(`${type}ChartsList`);
-        if (!container) return;
-
-        const items = type === 'music'
-            ? [...db.songs].sort((a, b) => (b.streams || 0) - (a.streams || 0)).slice(0, 50)
-            : [...db.albums].sort((a, b) => (b.metascore || 0) - (a.metascore || 0)).slice(0, 50);
-
-        container.innerHTML = items.map((item, index) => {
-            const trends = ['up', 'down', 'new', 'same']; const trend = trends[Math.floor(Math.random() * trends.length)];
-            let trendIcon = '';
-            if (trend === 'up') trendIcon = `<i class="fas fa-caret-up trend-up"></i>`; else if (trend === 'down') trendIcon = `<i class="fas fa-caret-down trend-down"></i>`; else if (trend === 'new') trendIcon = `<span class="trend-new">NEW</span>`; else trendIcon = `<span>-</span>`;
-
-            const title = item.title;
-            const artistString = type === 'music' ? formatArtistString(item.artistIds || [], item.collabType) : item.artist;
-            // ** CORREÇÃO: Busca a capa dinamicamente **
-            const cover = type === 'music' ? getCoverUrl(item.albumId) : item.imageUrl;
-            const streams = type === 'music' ? (item.streams || 0) : (item.metascore || 0) * 10000;
-            const albumId = type === 'music' ? item.albumId : item.id;
-            const mainArtistName = type === 'music'
-                 ? (db.artists.find(a => a.id === (item.artistIds || [])[0])?.name || 'Artista Desc.')
-                 : item.artist;
-
-            return `<div class="chart-item" data-id="${item.id}" data-type="${type}" data-artist-name="${mainArtistName}" data-album-id="${albumId || ''}">
-                        <div class="chart-position">${index + 1}</div>
-                        <img src="${cover}" class="chart-cover">
-                        <div class="chart-info">
-                            <div class="chart-title">${title}</div>
-                            <div class="chart-artist">${artistString}</div>
-                        </div>
-                        <div class="chart-stats">
-                            <div class="chart-streams">${streams.toLocaleString('pt-BR')}</div>
-                            <div class="chart-trend">${trendIcon}</div>
-                        </div>
-                   </div>`;
-        }).join('');
-    };
-
-
-    const openArtistDetail = (artistName) => {
-        const artist = db.artists.find(a => a.name === artistName);
-        if (!artist) { console.error("Artista não encontrado:", artistName); return; }
-        activeArtist = artist;
-        switchView('artistDetail');
-        document.getElementById('detailBg').style.backgroundImage = `url(${artist.imageUrl})`;
-        document.getElementById('detailName').textContent = artist.name;
-
-        const topSongs = db.songs
-            .filter(song => (song.artistIds || []).includes(artist.id))
-            .sort((a, b) => (b.streams || 0) - (a.streams || 0))
-            .slice(0, 5);
-
-        document.getElementById('popularSongsList').innerHTML = topSongs.map((song, index) => {
-             const artistString = formatArtistString(song.artistIds, song.collabType);
-             // ** CORREÇÃO: Busca a capa dinamicamente **
-             const coverUrl = getCoverUrl(song.albumId);
-             return `<div class="song-row" data-album-id="${song.albumId || ''}">
-                        <div style="color: var(--text-secondary);">${index + 1}</div>
-                        <div class="song-row-info">
-                            <img class="song-row-cover" src="${coverUrl}" alt="${song.title}">
-                            <div>
-                               <div class="song-row-title">${song.title}</div>
-                               <div class="track-artist-feat">${artistString}</div>
-                            </div>
-                        </div>
-                        <div class="song-streams">${(song.streams || 0).toLocaleString('pt-BR')}</div>
-                    </div>`;
-            }).join('');
-
-        const renderHorizontalList = (containerId, items) => { /* ... sem mudanças ... */ };
-        // Usa os álbuns/singles já associados ao artista em initializeData
-        renderHorizontalList('albumsList', artist.albums || []);
-        renderHorizontalList('singlesList', artist.singles || []);
-        renderArtistsGrid('recommendedGrid', db.artists.filter(a => a.name !== artistName).sort(() => 0.5 - Math.random()).slice(0, 4));
-    };
-
-    const openAlbumDetail = (albumId) => { /* ... sem mudanças significativas, já usava db.songs ... */ };
-    const openDiscographyDetail = (type) => { /* ... sem mudanças significativas, usa artist.albums/singles ... */ };
+    function getCoverUrl(albumId) { /* ... sem mudanças ... */ }
+    const renderChart = (type) => { /* ... sem mudanças ... */ };
+    const openArtistDetail = (artistName) => { /* ... sem mudanças ... */ };
+    const openAlbumDetail = (albumId) => { /* ... sem mudanças ... */ };
+    const openDiscographyDetail = (type) => { /* ... sem mudanças ... */ };
     const handleSearch = () => { /* ... sem mudanças ... */ };
     const setupCountdown = (timerId, callback) => { /* ... sem mudanças ... */ };
 
@@ -320,33 +335,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     function updateTrackNumbers() { /* ... sem mudanças ... */ }
     async function handleAlbumSubmit(event) { /* ... sem mudanças ... */ }
     async function batchCreateAirtableRecords(tableName, records) { /* ... sem mudanças ... */ }
-
-    // --- NOVA FUNÇÃO PARA RENDERIZAR PARTICIPAÇÕES ---
-     function renderParticipacoes() {
-        if (!participacoesList) return;
-        const colaboracoes = db.songs.filter(song => Array.isArray(song.artistIds) && song.artistIds.length > 1);
-        if (colaboracoes.length === 0) {
-            participacoesList.innerHTML = "<p>Nenhuma música com participação encontrada.</p>"; return;
-        }
-        colaboracoes.sort((a,b) => (b.streams || 0) - (a.streams || 0));
-        participacoesList.innerHTML = colaboracoes.map((song, index) => {
-             const artistString = formatArtistString(song.artistIds, song.collabType);
-             // ** CORREÇÃO: Busca a capa dinamicamente **
-             const coverUrl = getCoverUrl(song.albumId);
-             const mainArtistName = db.artists.find(a => a.id === song.artistIds[0])?.name || '';
-            return `<div class="chart-item" data-id="${song.id}" data-type="music" data-artist-name="${mainArtistName}" data-album-id="${song.albumId || ''}">
-                        <div class="chart-position">${index + 1}</div>
-                        <img src="${coverUrl}" class="chart-cover">
-                        <div class="chart-info">
-                            <div class="chart-title">${song.title}</div>
-                            <div class="chart-artist">${artistString}</div>
-                        </div>
-                        <div class="chart-stats">
-                            <div class="chart-streams">${(song.streams || 0).toLocaleString('pt-BR')}</div>
-                        </div>
-                   </div>`;
-        }).join('');
-    }
+    function renderParticipacoes() { /* ... sem mudanças ... */ }
 
     // --- 5. INICIALIZAÇÃO GERAL ---
 
@@ -355,24 +344,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Ponto de Partida ---
     async function main() {
         console.log("Iniciando Aplicação...");
-        initializeDOMElements();
+        // Initialize DOM elements MUST happen first
+        if (!initializeDOMElements()) return; // Stop if essential elements missing
+
         const data = await loadAllData();
 
         if (data && data.allArtists) {
-            try { // Wrap initialization in try-catch
-                initializeData(data);
+            if (!initializeData(data)) return; // Stop if data processing fails critically
+
+            try { // Wrap UI initialization in try-catch
                 initializeStudio();
 
                 if (newSingleForm) newSingleForm.addEventListener('submit', handleSingleSubmit);
                 if (newAlbumForm) newAlbumForm.addEventListener('submit', handleAlbumSubmit);
 
-                renderRPGChart();
+                renderRPGChart(); // Creates section/tab if needed
+
+                 // Setup Nav Listeners AFTER potential dynamic tab creation
                 const allNavs = [...document.querySelectorAll('.nav-tab'), ...document.querySelectorAll('.bottom-nav-item')];
                 allNavs.forEach(nav => {
-                    nav.removeEventListener('click', switchTab);
+                    nav.removeEventListener('click', switchTab); // Prevent duplicates
                     nav.addEventListener('click', switchTab);
                  });
 
+                // Initial render calls inside try-catch
                 renderArtistsGrid('homeGrid', [...db.artists].sort(() => 0.5 - Math.random()).slice(0, 10));
                 renderArtistsGrid('artistsGrid', db.artists);
                 renderChart('music');
@@ -383,15 +378,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                 initializeBodyClickListener();
                 document.querySelectorAll('.back-btn').forEach(btn => btn.addEventListener('click', handleBack));
 
+                // Set initial view state explicitly using the updated switchView
                 switchView('mainView', 'homeSection');
+
+                 // Ensure correct nav buttons are highlighted
                 allNavs.forEach(nav => {
                     nav.classList.toggle('active', nav.dataset.tab === 'homeSection');
                 });
 
                 console.log("Aplicação Iniciada e Configurada.");
-            } catch (initError) {
-                 console.error("Erro fatal durante a inicialização da UI:", initError);
-                 document.body.innerHTML = '<div style="color: white; padding: 20px; text-align: center;"><h1>Erro Crítico</h1><p>Ocorreu um erro ao processar os dados e inicializar a interface. Verifique o console.</p></div>';
+
+            } catch (uiError) {
+                 console.error("Erro fatal durante a inicialização da UI:", uiError);
+                 document.body.innerHTML = '<div style="color: white; padding: 20px; text-align: center;"><h1>Erro de Interface</h1><p>Ocorreu um erro ao configurar a interface. Verifique o console.</p></div>';
             }
 
         } else {
@@ -400,6 +399,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    main(); // Executa a inicialização
+    main(); // Run the initialization sequence
 
 });
