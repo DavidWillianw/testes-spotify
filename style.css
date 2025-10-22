@@ -601,8 +601,74 @@ body {
   font-size: 12px;
   color: var(--text-secondary);
 }
+.small-btn i {
+  margin-right: 4px;
+}
 
-/* --- ESTILOS DO ESTÚDIO (NOVO) --- */
+/* --- ESTILOS DO ESTÚDIO (NOVOS E ATUALIZADOS) --- */
+.studio-login-wrapper {
+  background-color: var(--background-secondary);
+  padding: 24px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+.studio-login-wrapper label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+.studio-login-wrapper select {
+  width: 100%;
+  background-color: var(--background-tertiary);
+  border: 1px solid #535353;
+  color: var(--text-primary);
+  padding: 14px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: "Montserrat", sans-serif;
+  margin-bottom: 16px;
+}
+#loginButton {
+  width: 100%;
+}
+#loggedInInfo p {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+#loggedInInfo p strong {
+  color: var(--text-primary);
+}
+#loggedInInfo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.studio-tabs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid var(--background-tertiary);
+}
+.studio-tab-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 16px;
+  font-weight: 700;
+  padding: 12px 0;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px; /* Alinha com a borda principal */
+}
+.studio-tab-btn.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--spotify-green);
+}
+
 .studio-subtitle {
   color: var(--text-secondary);
   font-size: 14px;
@@ -615,6 +681,13 @@ body {
   padding: 24px;
   border-radius: 12px;
 }
+/* Esconde forms que não estão ativos */
+.studio-form-content {
+  display: none;
+}
+.studio-form-content.active {
+  display: block;
+}
 
 .studio-form h3 {
   color: var(--spotify-green);
@@ -623,6 +696,14 @@ body {
 .studio-form h4 {
   margin-bottom: 16px;
   margin-top: 12px;
+}
+.track-helper {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.track-helper i {
+  color: var(--spotify-green);
 }
 
 .form-divider {
@@ -682,6 +763,58 @@ body {
 .submit-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Estilos do Editor de Tracklist */
+.track-list-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.track-list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: var(--background-tertiary);
+  padding: 10px;
+  border-radius: 6px;
+}
+.drag-handle {
+  cursor: grab;
+  color: var(--text-secondary);
+  padding: 0 5px;
+}
+.drag-handle:active {
+  cursor: grabbing;
+}
+.track-inputs {
+  flex-grow: 1;
+  display: flex;
+  gap: 10px;
+}
+.track-inputs input[type="text"] {
+  width: 70%;
+  padding: 10px;
+  font-size: 12px;
+  margin: 0;
+}
+.track-inputs input[type="text"]:last-child {
+  width: 30%;
+}
+.delete-track-btn {
+  background: none;
+  border: none;
+  color: var(--trend-down-red);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 5px;
+}
+
+/* Classe para o item sendo arrastado */
+.track-list-item.sortable-ghost {
+  opacity: 0.4;
+  background: #3f3f3f;
 }
 
 .bottom-nav-item .fa-microphone-alt {
@@ -777,6 +910,50 @@ body {
   #albumDetailTitle {
     font-size: 40px;
   }
+
+  /* Layout do Estúdio em Desktop */
+  .studio-login-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .studio-login-wrapper #loginPrompt {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+  }
+  .studio-login-wrapper label {
+    margin-bottom: 0;
+  }
+  .studio-login-wrapper select {
+    margin-bottom: 0;
+    flex-grow: 1;
+  }
+  #loginButton {
+    width: auto;
+  }
+
+  .track-inputs {
+    display: grid;
+    grid-template-columns: 20px 1fr 100px; /* Num, Título, Duração */
+    gap: 12px;
+    flex-grow: 1;
+  }
+  .track-inputs input[type="text"] {
+    width: 100%;
+  }
+  .track-inputs input[type="text"]:last-child {
+    width: 100%;
+  }
+  .track-list-item .track-number {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    width: 20px;
+    text-align: right;
+  }
+
 }
 
 @media (min-width: 1200px) {
