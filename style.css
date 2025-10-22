@@ -63,7 +63,7 @@ body {
 
 /* --- GRADES DE ARTISTAS E ÁLBUNS --- */
 .artists-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 16px; }
-.artist-card { text-align: center; cursor: pointer; }
+.artist-card { text-align: center; cursor: pointer; position: relative; /* Para o rank RPG */ }
 .artist-card img {
   width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 50%;
   margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); transition: transform 0.3s ease;
@@ -77,7 +77,7 @@ body {
   font-size: 12px; color: var(--text-secondary);
 }
 
-.album-card-grid { cursor: pointer; }
+.album-card-grid { cursor: pointer; } /* Usado em algum lugar? Parece ser .scroll-item ou .artist-card */
 .album-card-grid img {
   width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 8px;
   margin-bottom: 8px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
@@ -101,22 +101,24 @@ body {
   transition: background-color 0.2s ease;
 }
 .chart-item:hover { background-color: var(--background-tertiary); }
-.chart-item .chart-rank { /* CORRIGIDO: JS usa .chart-rank */
-    font-size: 16px; font-weight: 700; text-align: center; 
+.chart-item .chart-rank {
+    font-size: 16px; font-weight: 700; text-align: center;
 }
-.chart-item .chart-item-img { /* CORRIGIDO: JS usa .chart-item-img */
-    width: 50px; height: 50px; border-radius: 4px; object-fit: cover; 
+.chart-item .chart-item-img {
+    width: 50px; height: 50px; border-radius: 4px; object-fit: cover;
 }
-.chart-item .chart-item-info { /* CORRIGIDO: JS usa .chart-item-info */
-    min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+.chart-item .chart-item-info {
+    min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.chart-item .chart-item-title { /* CORRIGIDO: JS usa .chart-item-title */
-    font-size: 14px; font-weight: 600; 
+.chart-item .chart-item-title {
+    font-size: 14px; font-weight: 600; display: block; /* Para garantir quebra se necessário */
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.chart-item .chart-item-artist { /* CORRIGIDO: JS usa .chart-item-artist */
-    font-size: 12px; color: var(--text-secondary); 
+.chart-item .chart-item-artist {
+    font-size: 12px; color: var(--text-secondary); display: block;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.chart-item-duration, .chart-item-score { /* CORRIGIDO: JS usa essas classes */
+.chart-item-duration, .chart-item-score {
     font-size: 12px; font-weight: 500; text-align: right; color: var(--text-secondary);
 }
 
@@ -157,7 +159,7 @@ body {
 #detailName { font-size: 48px; font-weight: 900; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5); margin: 0; }
 #albumDetailCover {
   width: 180px; height: 180px; object-fit: cover; border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); margin-bottom: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); margin: 0 auto 16px; /* Centraliza a capa */
 }
 #albumDetailTitle { font-size: 24px; font-weight: 800; }
 #albumDetailInfo { color: var(--text-secondary); font-size: 14px; margin-top: 8px; }
@@ -192,36 +194,39 @@ body {
   padding-left: 16px; padding-right: 16px; scrollbar-width: none;
 }
 .horizontal-scroll-list::-webkit-scrollbar { display: none; }
-.scroll-item { /* CORRIGIDO: JS usa .scroll-item */
-    flex: 0 0 140px; width: 140px; cursor: pointer; 
+.scroll-item {
+    flex: 0 0 140px; width: 140px; cursor: pointer;
 }
 .scroll-item img {
   width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; margin-bottom: 8px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
 }
-.scroll-item p { /* CORRIGIDO: JS usa <p> */
-    font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; 
+.scroll-item p {
+    font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;
 }
-.scroll-item span { /* CORRIGIDO: JS usa <span> */
-    font-size: 12px; color: var(--text-secondary); 
+.scroll-item span {
+    font-size: 12px; color: var(--text-secondary);
 }
 #albumTracklist { margin-top: 24px; }
 .track-row {
   display: grid; grid-template-columns: 20px 1fr auto; align-items: center; gap: 16px;
   padding: 12px 4px; border-bottom: 1px solid var(--background-tertiary);
 }
-/* Estilo para artistas em feats na tracklist */
 .track-row .track-artist-feat {
     font-size: 12px;
     color: var(--text-secondary);
     margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; /* Evita quebra de linha */
 }
 .track-row:last-child { border-bottom: none; }
-.track-title { font-weight: 500; }
+.track-title {
+    font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; /* Evita quebra de linha */
+}
 .track-duration { color: var(--text-secondary); font-size: 14px; }
 .full-page-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
 
-/* --- MENSAGEM DE 'NÃO ENCONTRADO' --- */
+/* --- MENSAGEM DE 'NÃO ENCONTRADO' / ESTADO VAZIO --- */
 .no-results { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
 .no-results i { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
 .empty-state { text-align: center; padding: 20px; color: var(--text-secondary); font-size: 14px; }
@@ -249,7 +254,7 @@ body {
   margin-left: 6px; font-size: 12px;
 }
 .small-btn:hover { background: rgba(29, 185, 84, 0.06); }
-.rpg-rank { /* Adicionado para o chart de RPG */
+.rpg-rank {
   position: absolute;
   top: 5px;
   left: 15px;
@@ -296,6 +301,14 @@ body {
   color: var(--text-primary); padding: 14px; border-radius: 6px; font-size: 14px;
   font-family: "Montserrat", sans-serif;
 }
+/* Estilo específico para input date */
+.studio-form-group input[type="date"] {
+  appearance: none; /* Remove aparência padrão */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  color-scheme: dark; /* Adapta o calendário ao tema escuro */
+}
+/* Estilo para placeholder */
 .studio-form-group input::placeholder { color: #757575; }
 
 .submit-btn {
@@ -312,27 +325,35 @@ body {
 .track-main-row { display: flex; align-items: center; width: 100%; gap: 10px;}
 .drag-handle { cursor: grab; color: var(--text-secondary); padding: 0 5px; }
 .drag-handle:active { cursor: grabbing; }
-.track-inputs { flex-grow: 1; display: flex; gap: 10px; }
-.track-inputs .track-number { font-size: 14px; font-weight: 700; color: var(--text-secondary); width: 20px; text-align: right; line-height: 40px; }
-.track-inputs input[type="text"] { /* CORRIGIDO: JS usa .track-name-input e .track-duration-input */
-    width: 70%; padding: 10px; font-size: 12px; margin: 0;
+.track-inputs { flex-grow: 1; display: flex; gap: 10px; align-items: center; /* Alinha verticalmente */ }
+.track-inputs .track-number { font-size: 14px; font-weight: 700; color: var(--text-secondary); width: 20px; text-align: right; flex-shrink: 0; }
+.track-inputs input[type="text"] {
+    padding: 10px; font-size: 12px; margin: 0;
     background-color: var(--background-primary); border: 1px solid #535353; border-radius: 4px; color: var(--text-primary);
+    flex-grow: 1; /* Permite que o nome cresça */
+    width: auto; /* Reseta width fixo */
+    min-width: 0; /* Permite encolher */
 }
-.track-inputs input.track-duration-input { width: 30%; }
+.track-inputs input.track-duration-input {
+    flex-grow: 0; /* Não cresce */
+    flex-shrink: 0; /* Não encolhe além do necessário */
+    width: 70px; /* Largura fixa menor */
+    text-align: center; /* Centraliza o texto MM:SS */
+}
 .delete-track-btn { background: none; border: none; color: var(--trend-down-red); font-size: 16px; cursor: pointer; padding: 5px; }
 .track-list-item.sortable-ghost { opacity: 0.4; background: #3f3f3f; }
+.feat-target-hidden { display: none; } /* Elemento auxiliar para o modal */
 
 /* Seção de Feat (dentro de .track-list-item ou .feat-section do single) */
-.feat-section { margin-top: 10px; padding-left: 25px; }
+.feat-section { margin-top: 10px; padding-left: 25px; /* Alinhar com inputs */ }
 .feat-section label { font-size: 11px; font-weight: 600; color: var(--spotify-green); margin-bottom: 5px; text-transform: uppercase; display: block; }
 .feat-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .feat-tag {
     background-color: var(--background-primary); color: var(--text-secondary);
     padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;
-    display: flex; align-items: center; gap: 5px;
+    display: inline-flex; align-items: center; gap: 5px; cursor: pointer; /* Indica que é clicável */
 }
-.feat-tag .feat-type { color: var(--spotify-green); font-weight: 600;}
-.feat-tag .remove-feat-btn { background: none; border: none; color: var(--trend-down-red); cursor: pointer; font-size: 10px; padding: 0 2px;}
+.feat-tag:hover { color: var(--text-primary); } /* Feedback visual */
 .add-feat-btn { font-size: 11px; padding: 4px 6px; }
 
 
@@ -361,15 +382,17 @@ body {
 /* ============= MELHORIAS PARA DESKTOP (PC) ================ */
 /* ========================================================== */
 @media (min-width: 768px) {
-  body { display: grid; grid-template-columns: 240px 1fr; }
-  .page-view { grid-column: 2 / 3; }
-  .topbar { position: fixed; width: calc(100% - 240px); left: 240px; padding: 16px 32px; }
-  .main-container { padding: 80px 32px 32px; }
+  body { display: grid; grid-template-columns: 240px 1fr; grid-template-rows: auto 1fr; height: 100vh; }
+  .page-view { grid-column: 2 / 3; grid-row: 1 / span 2; overflow-y: auto; }
+  .topbar { position: sticky; /* Muda para sticky dentro da coluna */ grid-column: 2 / 3; grid-row: 1 / 2; padding: 16px 32px; z-index: 100; /* Garante que fique acima */ }
+  .main-container { padding: 24px 32px 32px; /* Ajuste no padding superior */ grid-column: 2 / 3; grid-row: 2 / 3; }
   .nav-tabs { justify-content: center; overflow-x: visible; }
   .bottom-nav {
-    position: fixed; left: 0; top: 0; width: 240px; height: 100vh; background-color: #000;
+    position: static; /* Remove fixed */ grid-column: 1 / 2; grid-row: 1 / span 2;
+    background-color: #000;
     flex-direction: column; justify-content: flex-start; align-items: flex-start;
     padding: 24px; gap: 8px; border-top: none; border-right: 1px solid var(--background-tertiary);
+    height: 100%; /* Ocupa toda a altura */
   }
   .bottom-nav-item {
     display: flex; align-items: center; gap: 20px; padding: 12px 16px; width: 100%;
@@ -378,9 +401,8 @@ body {
   .bottom-nav-item.active { color: var(--text-primary); background-color: var(--background-tertiary); }
   .bottom-nav-item:hover { color: var(--text-primary); }
   .bottom-nav-item span { display: inline; font-size: 14px; }
-  .back-btn { left: 264px; }
+  .back-btn { left: 264px; } /* Ajusta posição por causa da barra lateral */
   .page-detail-body { padding: 0 32px 32px; max-width: 1400px; margin: 0 auto; }
-  .main-container { padding-bottom: 32px; }
   #detailName { font-size: 80px; }
   .artist-header-content { margin-top: -100px; padding: 0 32px; }
   #albumDetailCover { width: 230px; height: 230px; }
@@ -393,14 +415,17 @@ body {
   .studio-login-wrapper select { margin-bottom: 0; flex-grow: 1; }
   #loginButton { width: auto; }
 
-  .track-main-row { width: auto; } 
+  /* Ajuste no editor de tracklist para Desktop */
+  .track-main-row { width: auto; }
   .track-inputs {
     display: grid; grid-template-columns: 20px 1fr 100px; /* Num, Título, Duração */
-    gap: 12px; flex-grow: 1;
+    gap: 12px; flex-grow: 1; align-items: center;
   }
-  .track-inputs input[type="text"] { width: 100%; }
-  .track-inputs input[type="text"]:last-child { width: 100%; }
-  .track-list-item .track-number { font-size: 14px; font-weight: 700; color: var(--text-secondary); width: 20px; text-align: right; line-height: inherit; }
+   /* Garante que a largura volte ao normal no desktop */
+  .track-inputs input.track-duration-input {
+      width: 100%; /* Ocupa a coluna do grid */
+  }
+  .track-list-item .track-number { line-height: inherit; } /* Reset align vertical */
   .feat-section { padding-left: 45px; }
 
 }
