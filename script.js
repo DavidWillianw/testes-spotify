@@ -69,7 +69,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         let offset = null;
 
         do {
-             // Corrige a adição do offset para URLs que já têm parâmetros
             const separator = baseUrl.includes('?') ? '&' : '?';
             const fetchUrl = offset ? `${baseUrl}${separator}offset=${offset}` : baseUrl;
 
@@ -1099,7 +1098,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return results;
     }
 
-    async function handleAlbumSubmit(event) {
+    async function handleAlbumSubmit(event) { // Linha 1030 -> agora ~1034
         event.preventDefault();
         const submitBtn = document.getElementById('submitNewAlbum');
         submitBtn.disabled = true;
@@ -1168,6 +1167,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     "Artista": finalArtistIds,
                     "Duração": durationSec,
                     "Nº da Faixa": index + 1
+                    // O link para Álbum ou Single/EP será adicionado depois
                 };
 
                 if (collabType) {
@@ -1199,17 +1199,28 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             const releaseRecordId = releaseRecordResponse.id;
 
-            const releaseLinkField = isAlbum ? 'Álbuns' : 'Singles e EPs';
+            // --- CORREÇÃO ERRO 422 ---
+            // Define o nome EXATO do campo de link na tabela "Músicas"
+            // !!! VERIFIQUE ESTES NOMES NO SEU AIRTABLE !!!
+            const albumLinkFieldNameInMusicas = 'Álbuns'; // Nome do campo link para Álbuns em Músicas
+            const singleLinkFieldNameInMusicas = 'Singles e EPs'; // Nome do campo link para Singles em Músicas
+
+            // Escolhe o nome correto do campo de link a ser usado
+            const correctLinkField = isAlbum ? albumLinkFieldNameInMusicas : singleLinkFieldNameInMusicas;
+
+            // Adiciona o link usando o nome CORRETO do campo
             musicRecordsToCreate.forEach(record => {
-                record[releaseLinkField] = [releaseRecordId];
+                record[correctLinkField] = [releaseRecordId];
             });
+            // --- FIM DA CORREÇÃO ---
 
-            const createdSongs = await batchCreateAirtableRecords('Músicas', musicRecordsToCreate);
 
-            if (!createdSongs || createdSongs.length !== musicRecordsToCreate.length) {
+            const createdSongs = await batchCreateAirtableRecords('Músicas', musicRecordsToCreate); // Linha ~1207
+
+            if (!createdSongs || createdSongs.length !== musicRecordsToCreate.length) { // Linha ~1210
                 console.error("Álbum/EP criado, mas falha ao criar as músicas vinculadas.");
                 // Opcional: Implementar rollback (deletar o álbum/EP)
-                throw new Error("Falha ao criar as faixas no Airtable.");
+                throw new Error("Falha ao criar as faixas no Airtable."); // Linha ~1212
             }
 
             alert("Álbum/EP lançado com sucesso!");
@@ -1219,7 +1230,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             initAlbumForm();
             await refreshAllData();
 
-        } catch (error) {
+        } catch (error) { // Linha ~1224
             alert("Erro ao lançar o álbum/EP. Verifique o console e os campos preenchidos.");
             console.error("Erro em handleAlbumSubmit:", error);
         } finally {
@@ -1273,7 +1284,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    async function main() {
+    async function main() { // Linha ~1279
         console.log("Iniciando Aplicação...");
         if (!initializeDOMElements()) return;
 
@@ -1322,8 +1333,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         document.body.classList.remove('loading');
-    }
+    } // Fim da função main - Linha ~1316
 
     main();
 
-});
+}); // Fim do EventListener DOMContentLoaded
