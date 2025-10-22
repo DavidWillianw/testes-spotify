@@ -1,16 +1,54 @@
 document.addEventListener('DOMContentLoaded', async () => {
 
+    // --- VARIÁVEIS GLOBAIS ---
+    let db = { artists: [], albums: [], songs: [], players: [] };
+    let currentPlayer = null;
+    let albumTracklistSortable = null;
+
+    const allViews = document.querySelectorAll('.page-view');
+    const searchInput = document.getElementById('searchInput');
+    const studioView = document.getElementById('studioView'); 
+    let viewHistory = ['mainView'];
+    
+    // IDs da sua base (já que loadAllData não está no escopo global)
+    const AIRTABLE_BASE_ID = 'appG5NOoblUmtSMVI';
+    const AIRTABLE_API_KEY = 'pat5T28kjmJ4t6TQG.69bf34509e687fff6a3f76bd52e64518d6c92be8b1ee0a53bcc9f50fedcb5c70';
+    
+    // --- ELEMENTOS DO ESTÚDIO ---
+    const loginPrompt = document.getElementById('loginPrompt');
+    const loggedInInfo = document.getElementById('loggedInInfo');
+    const playerSelect = document.getElementById('playerSelect');
+    const loginButton = document.getElementById('loginButton');
+    const logoutButton = document.getElementById('logoutButton');
+    const studioLaunchWrapper = document.getElementById('studioLaunchWrapper');
+    const studioTabs = document.querySelectorAll('.studio-tab-btn');
+    const studioForms = document.querySelectorAll('.studio-form-content');
+    
+    // Formulário de Single
+    const newSingleForm = document.getElementById('newSingleForm');
+    const singleArtistSelect = document.getElementById('singleArtistSelect');
+
+    // Formulário de Álbum/EP
+    const newAlbumForm = document.getElementById('newAlbumForm');
+    const albumArtistSelect = document.getElementById('albumArtistSelect');
+    const addTrackButton = document.getElementById('addTrackButton');
+    const albumTracklistEditor = document.getElementById('albumTracklistEditor');
+    
+
+    // --- 1. CARREGAMENTO DE DADOS ---
+    
+    /**
+     * Carrega TODOS os dados de TODAS as 5 tabelas do Airtable.
+     */
     async function loadAllData() {
+        // IDs já estão no escopo global, não precisa repetir
 
-        const AIRTABLE_BASE_ID = 'appG5NOoblUmtSMVI';
-        const AIRTABLE_API_KEY = 'pat5T28kjmJ4t6TQG.69bf34509e687fff6a3f76bd52e64518d6c92be8b1ee0a53bcc9f50fedcb5c70';
-        // ------------------------------------
-
-        // URLs para cada tabela da base
+        // URLs para cada tabela da base (AGORA INCLUINDO JOGADORES)
         const artistsURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Artists?filterByFormula=%7BArtista%20Principal%7D%3D1`;
         const albumsURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Álbuns`;
         const musicasURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Músicas`;
         const singlesURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Singles%20e%20EPs`;
+        const playersURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Jogadores`; // NOVA TABELA
 
         const fetchOptions = {
             headers: {
@@ -18,16 +56,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         };
 
+        console.log("Iniciando carregamento de dados do Airtable...");
+
         try {
-            // Busca os dados das QUATRO tabelas ao mesmo tempo
-            const [artistsResponse, albumsResponse, musicasResponse, singlesResponse] = await Promise.all([
+            // Busca os dados das CINCO tabelas ao mesmo tempo
+            const [artistsResponse, albumsResponse, musicasResponse, singlesResponse, playersResponse] = await Promise.all([
                 fetch(artistsURL, fetchOptions),
                 fetch(albumsURL, fetchOptions),
                 fetch(musicasURL, fetchOptions),
-                fetch(singlesURL, fetchOptions)
+                fetch(singlesURL, fetchOptions),
+                fetch(playersURL, fetchOptions) // NOVA REQUISIÇÃO
             ]);
 
-            if (!artistsResponse.ok || !albumsResponse.ok || !musicasResponse.ok || !singlesResponse.ok) {
+            if (!artistsResponse.ok || !albumsResponse.ok || !musicasResponse.ok || !singlesResponse.ok || !playersResponse.ok) {
+                console.error("Falha ao carregar dados de uma das tabelas do Airtable.");
+                console.error("Artists:", artistsResponse.statusText);
+                console.error("Albums:", albumsResponse.statusText);
+                console.error("Musicas:", musicasResponse.statusText);
+                console.error("Singles:", singlesResponse.statusText);
+                console.error("Players:", playersResponse.statusText);
                 throw new Error('Falha ao carregar dados de uma das tabelas do Airtable.');
             }
 
@@ -35,6 +82,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const albumsData = await albumsResponse.json();
             const musicasData = await musicasResponse.json();
             const singlesData = await singlesResponse.json();
+            const playersData = await playersResponse.json(); // NOVOS DADOS
 
             // --- RECONSTRUÇÃO DOS DADOS ---
 
@@ -75,57 +123,50 @@ document.addEventListener('DOMContentLoaded', async () => {
             const formattedAlbums = formatReleases(albumsData.records);
             const formattedSingles = formatReleases(singlesData.records);
 
-            // ***** MODIFICAÇÃO AQUI *****
-            // Adicionado RPGPoints e LastActive para o novo sistema de RPG
             const formattedArtists = artistsData.records.map(record => {
                 return {
-                    id: record.id, // ID do Registro do Airtable, essencial para o PATCH
+                    id: record.id,
                     name: record.fields.Name || 'Nome Indisponível',
                     imageUrl: (record.fields['URL da Imagem'] && record.fields['URL da Imagem'][0]?.url) || 'https://i.imgur.com/AD3MbBi.png',
                     off: record.fields['Inspirações (Off)'] || [],
-                    // --- NOVOS CAMPOS DO RPG ---
                     RPGPoints: record.fields.RPGPoints || 0,
                     LastActive: record.fields.LastActive || null
                 };
             });
-            // ***** FIM DA MODIFICAÇÃO *****
+            
+            // NOVO: Formata dados dos jogadores
+            const formattedPlayers = playersData.records.map(record => {
+                return {
+                    id: record.id,
+                    name: record.fields.Nome,
+                    artists: record.fields.Artistas || [] // Array de IDs de artistas
+                };
+            });
+
+            console.log("Dados carregados com sucesso.");
 
             return {
                 albums: formattedAlbums,
                 artists: formattedArtists,
-                singles: formattedSingles
+                singles: formattedSingles,
+                players: formattedPlayers // Retorna os jogadores
             };
 
         } catch (error) {
             console.error("Falha ao carregar e processar os dados do Airtable:", error);
-            return { albums: [], artists: [], singles: [] };
+            return { albums: [], artists: [], singles: [], players: [] };
         }
     }
 
-    // Constantes Globais
-    const { albums: albumsData, artists: artistsList, singles: singlesData } = await loadAllData();
-    let db = { artists: [], albums: [], songs: [] };
-    const allViews = document.querySelectorAll('.page-view');
-    const searchInput = document.getElementById('searchInput');
-    // ** MODIFICAÇÃO AQUI: Adiciona a nova view do estúdio **
-    const studioView = document.getElementById('studioView'); 
-    // ** Adiciona os botões de navegação (serão encontrados pelo switchTab) **
-    let activeArtist = null;
-    let viewHistory = ['mainView'];
-    
-    const AIRTABLE_BASE_ID = 'appG5NOoblUmtSMVI';
-    const AIRTABLE_API_KEY = 'pat5T28kjmJ4t6TQG.69bf34509e687fff6a3f76bd52e64518d6c92be8b1ee0a53bcc9f50fedcb5c70';
-    
-    // ** MODIFICAÇÃO AQUI: Adiciona o formulário **
-    const newSingleForm = document.getElementById('newSingleForm');
-
-
-    const initializeData = () => {
+    /**
+     * Coloca os dados carregados no banco de dados local 'db'
+     */
+    const initializeData = (data) => {
         const artistsMap = new Map();
 
-        artistsList.forEach(artist => {
+        (data.artists || []).forEach(artist => {
             artistsMap.set(artist.name, {
-                ...artist, // Isso irá incluir id, RPGPoints, LastActive, etc.
+                ...artist,
                 img: artist.imageUrl || 'https://i.imgur.com/AD3MbBi.png',
                 albums: [],
                 singles: []
@@ -133,7 +174,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         const processReleases = (releaseData, type) => {
-            releaseData.forEach(item => {
+            (releaseData || []).forEach(item => {
                 if (item.tracks && item.tracks.length > 0) {
                     item.totalDurationSeconds = item.tracks.reduce((total, track) => {
                         const parts = (track.duration || "0:0").split(':');
@@ -162,30 +203,52 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         };
 
-        processReleases(albumsData, 'albums');
-        processReleases(singlesData, 'singles');
+        db.songs = []; // Limpa as músicas antigas antes de re-processar
+        processReleases(data.albums, 'albums');
+        processReleases(data.singles, 'singles');
 
         db.artists = Array.from(artistsMap.values());
-        db.albums = [...albumsData, ...singlesData];
+        db.albums = [...(data.albums || []), ...(data.singles || [])];
+        db.players = data.players || [];
     };
 
+    /**
+     * [NOVO] Recarrega todos os dados do Airtable e atualiza a UI
+     * Isso corrige o bug de "desaparecer" do estúdio.
+     */
+    async function refreshAllData() {
+        console.log("Atualizando dados...");
+        const data = await loadAllData();
+        initializeData(data);
+        
+        // Re-renderiza partes da UI que dependem dos novos dados
+        renderRPGChart();
+        renderChart('music');
+        renderChart('album');
+        
+        // Atualiza os dropdowns do estúdio com os artistas do jogador logado
+        if (currentPlayer) {
+            populateArtistSelector(currentPlayer.id);
+        }
+        
+        console.log("Atualização concluída.");
+    }
+
+
+    // --- 2. NAVEGAÇÃO E UI ---
+
     const switchView = (viewId) => {
-        // ** MODIFICAÇÃO AQUI: Garante que a view do estúdio seja tratada **
-        // Oculta todas as views
         allViews.forEach(v => v.classList.add('hidden'));
 
-        // Mostra a view correta
         if (viewId === 'studioView') {
             studioView.classList.remove('hidden');
-            // Como studioView não é 'mainView', esconde o topbar e mostra o conteúdo
             document.querySelector('.topbar').classList.add('hidden');
-            // studioView tem seu próprio main-container, então está ok.
         } else if (viewId === 'mainView') {
             document.getElementById('mainView').classList.remove('hidden');
             document.querySelector('.topbar').classList.remove('hidden');
         } else {
-            // Para 'artistDetail', 'albumDetail', etc.
-            document.getElementById(viewId).classList.remove('hidden');
+            const viewToShow = document.getElementById(viewId);
+            if(viewToShow) viewToShow.classList.remove('hidden');
             document.querySelector('.topbar').classList.add('hidden');
         }
         
@@ -199,7 +262,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (viewHistory.length > 1) {
             viewHistory.pop();
             const previousViewId = viewHistory[viewHistory.length - 1];
-            // Re-chama switchView para tratar corretamente a lógica de mostrar/esconder
             switchView(previousViewId);
         }
     };
@@ -227,34 +289,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     const openArtistDetail = (artistName) => {
         const artist = db.artists.find(a => a.name === artistName);
         if (!artist) return;
-        activeArtist = artist;
+        switchView('artistDetail'); // Mover switchView para o topo
         document.getElementById('detailBg').style.backgroundImage = `url(${artist.img})`;
         document.getElementById('detailName').textContent = artist.name;
-
         const allSongsByArtist = db.songs.filter(s => s.artist === artistName);
         const topSongs = allSongsByArtist.sort((a, b) => b.streams - a.streams).slice(0, 5);
-
         document.getElementById('popularSongsList').innerHTML = topSongs.map((song, index) => `<div class="song-row" data-album-id="${song.albumId}"><div style="color: var(--text-secondary);">${index + 1}</div><div class="song-row-info"><img class="song-row-cover" src="${song.cover}" alt="${song.title}"><div class="song-row-title">${song.title}</div></div><div class="song-streams">${song.streams.toLocaleString('pt-BR')}</div></div>`).join('');
-
         const renderHorizontalList = (containerId, items) => { document.getElementById(containerId).innerHTML = items.map(item => `<div class="album-card" data-album-id="${item.id}"><img src="${item.imageUrl}" alt="${item.title}"><div class="album-title">${item.title}</div><div class="album-year">${new Date(item.releaseDate || '2024-01-01').getFullYear()}</div></div>`).join(''); };
-        renderHorizontalList('albumsList', artist.albums);
-        renderHorizontalList('singlesList', artist.singles);
+        renderHorizontalList('albumsList', db.albums.filter(a => a.artist === artist.name && a.tracks.length > 2)); // Álbuns
+        renderHorizontalList('singlesList', db.albums.filter(a => a.artist === artist.name && a.tracks.length <= 2)); // Singles
         renderArtistsGrid('recommendedGrid', db.artists.filter(a => a.name !== artistName).sort(() => 0.5 - Math.random()).slice(0, 4));
-        switchView('artistDetail');
     };
 
     const openAlbumDetail = (albumId) => {
         const album = db.albums.find(a => a.id === albumId);
         if (!album) return;
-
+        switchView('albumDetail'); // Mover switchView para o topo
         document.getElementById('albumDetailBg').style.backgroundImage = `url(${album.imageUrl})`;
         document.getElementById('albumDetailCover').src = album.imageUrl;
         document.getElementById('albumDetailTitle').textContent = album.title;
         const totalMinutes = Math.floor((album.totalDurationSeconds || 0) / 60);
         document.getElementById('albumDetailInfo').innerHTML = `<strong class="clickable-artist" data-artist-name="${album.artist}">${album.artist}</strong> • ${new Date(album.releaseDate || '2024-01-01').getFullYear()} • ${(album.tracks || []).length} músicas, ${totalMinutes} min`;
-
         const sortedTracks = [...(album.tracks || [])].sort((a, b) => (a.trackNumber || 0) - (b.trackNumber || 0));
-
         document.getElementById('albumTracklist').innerHTML = sortedTracks.map(track =>
             `<div class="track-row">
                 <div>${track.trackNumber}</div>
@@ -262,8 +318,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div class="track-duration">${track.duration}</div>
             </div>`
         ).join('');
-
-        switchView('albumDetail');
     };
 
     const openDiscographyDetail = (type) => {
@@ -271,7 +325,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const items = type === 'albums' ? activeArtist.albums : activeArtist.singles;
         document.getElementById('discographyTypeTitle').textContent = type === 'albums' ? 'Todos os Álbuns' : 'Todos os Singles';
         const grid = document.getElementById('discographyGrid');
-
         grid.innerHTML = items.map(item => `
             <div class="album-card-grid" data-album-id="${item.id}">
                 <img src="${item.imageUrl}" alt="${item.title}">
@@ -294,20 +347,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     const switchTab = (event, forceTabId = null) => {
         const tabId = forceTabId || (event.currentTarget ? event.currentTarget.dataset.tab : 'homeSection');
         
-        // ** MODIFICAÇÃO AQUI: Trata a troca para a nova aba 'studioSection' **
         if (tabId === 'studioSection') {
             switchView('studioView');
-        } else if (viewHistory[viewHistory.length - 1] !== 'mainView') {
+        } else if (viewHistory[viewHistory.length - 1] !== 'mainView' && tabId !== 'mainView') {
             switchView('mainView');
         }
         
-        // Atualiza os botões de navegação
         const dynamicAllNavs = [...document.querySelectorAll('.nav-tab'), ...document.querySelectorAll('.bottom-nav-item')];
         dynamicAllNavs.forEach(nav => nav.classList.toggle('active', nav.dataset.tab === tabId));
 
-        // Ativa a seção de conteúdo correta APENAS se estivermos na mainView
         if (viewHistory[viewHistory.length - 1] === 'mainView') {
-            document.querySelectorAll('.content-section').forEach(s => s.classList.toggle('active', s.id === tabId));
+            document.querySelectorAll('#mainView .content-section').forEach(s => s.classList.toggle('active', s.id === tabId));
         }
     };
 
@@ -320,16 +370,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         setInterval(updateTimer, 1000);
     };
 
-    // ----------------- (CÓDIGO DE RPG / BRIGA DE CHARTS) -----------------
-    // Config
-    const CHART_TOP_N = 20;
-    const STREAMS_PER_POINT = 10000; // ajuste se quiser números maiores
+    
+    // --- 3. SISTEMA DE RPG (BRIGA DE CHARTS) ---
 
-    // Util: calcula streams simulados a partir de pontos e lastActive (ISO string ou null)
+    const CHART_TOP_N = 20;
+    const STREAMS_PER_POINT = 10000;
+
     function calculateSimulatedStreams(points, lastActiveISO) {
-      // base
-      const base = points * STREAMS_PER_POINT; // digit-by-digit: points * STREAMS_PER_POINT
-      // activity factor (recency): se ativo nos últimos 3 dias => +20%, 7 dias => +10%, 14 dias => 0, mais velho => -10%
       let activityFactor = 0;
       if (lastActiveISO) {
         const last = new Date(lastActiveISO);
@@ -341,21 +388,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         else if (diffDays <= 14) activityFactor = 0.00;
         else activityFactor = -0.10;
       }
-      const activityBonus = Math.floor(base * activityFactor); // inteiro
-      // randomness até 15%
+      const base = points * STREAMS_PER_POINT;
+      const activityBonus = Math.floor(base * activityFactor);
       const randomness = Math.floor(base * (Math.random() * 0.15));
       const total = Math.max(0, base + activityBonus + randomness);
       return total;
     }
 
-    // Constrói o array com score e simulatedStreams para o chart
     function computeChartData(artistsArray) {
-      // artistsArray deve ter: { id, name, RPGPoints, LastActive, img, ... }
       return artistsArray.map(art => {
         const points = Number(art.RPGPoints || 0);
         const lastActive = art.LastActive || null;
         const simulatedStreams = calculateSimulatedStreams(points, lastActive);
-        const chartScore = points; // se quiser, pode misturar outros fatores
+        const chartScore = points;
         return {
           id: art.id,
           name: art.name,
@@ -368,12 +413,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       }).sort((a, b) => b.chartScore - a.chartScore).slice(0, CHART_TOP_N);
     }
 
-    // Render do Top 20 na UI (cria uma nova seção ou reusa #musicChartsList)
     function renderRPGChart() {
-      // cria container se não existir
       let container = document.getElementById('rpgChartList');
       if (!container) {
-        // cria coluna nova na interface (coloca antes de musicChartsList por exemplo)
         const wrapper = document.createElement('section');
         wrapper.id = 'rpgChartSection';
         wrapper.className = 'content-section';
@@ -381,11 +423,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           <div class="chart-header"><h3>🏆 RPG Spotify - Top ${CHART_TOP_N}</h3><p>Atualiza automaticamente</p></div>
           <div id="rpgChartList" class="chart-list"></div>
         `;
-        const mainEl = document.querySelector('.main-container') || document.querySelector('main');
-        mainEl.insertBefore(wrapper, document.getElementById('homeSection')); // Coloca antes da home
+        const mainEl = document.querySelector('#mainView .main-container');
+        if(mainEl) mainEl.insertBefore(wrapper, document.getElementById('homeSection'));
         container = document.getElementById('rpgChartList');
         
-        // adiciona tab no nav se quiser
         const nav = document.querySelector('.nav-tabs');
         if (nav && !nav.querySelector('[data-tab="rpgChartSection"]')) {
           const btn = document.createElement('button');
@@ -397,11 +438,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       }
 
-      // computa
-      // db.artists já tem id, name, img, RPGPoints, e LastActive
-      // graças às modificações em loadAllData e initializeData
       const artistsForChart = db.artists;
-
       const chart = computeChartData(artistsForChart);
 
       container.innerHTML = chart.map((item, idx) => `
@@ -419,28 +456,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>
       `).join('');
 
-      // adiciona event listeners nos botões
       document.querySelectorAll('.btn-action').forEach(b => {
         b.addEventListener('click', async (e) => {
-          e.stopPropagation(); // Impede que o clique no botão acione o clique no .chart-item
+          e.stopPropagation();
           const action = e.currentTarget.dataset.action;
           const artistId = e.currentTarget.dataset.artistId;
-          
-          // Chama a nova função handler
           await handleRPGAction(action, artistId); 
-          
-          // O re-render só acontece se a ação não for 'launch_single'
           if (action !== 'launch_single') {
-              renderRPGChart(); // atualiza UI
+              renderRPGChart();
           }
         });
       });
     }
 
-    // ----------------- AÇÃO RPG (aplica pontos e salva) -----------------
-
-    // cooldowns locais rápidos pra UX; se quiser persistir, armazena no Airtable (campo Cooldowns)
-    const localActionCooldowns = {}; // artistId_action -> timestamp
+    const localActionCooldowns = {};
 
     function isOnCooldown(artistId, actionKey, cooldownSeconds = 60) {
       const key = `${artistId}_${actionKey}`;
@@ -451,152 +480,189 @@ document.addEventListener('DOMContentLoaded', async () => {
       return true;
     }
 
-    // --- NOVA FUNÇÃO HANDLER ---
-    // Esta função decide o que fazer com base na ação
     async function handleRPGAction(action, artistId) {
-        // const notionLink = "https://www.notion.so/Lance-sua-m-sica-294bdee35f0580caafbffb28ae61f3a8"; // Seu link do Notion
-
         if (action === 'launch_single') {
-            // Ação: Lançar Single
-            // ** MODIFICAÇÃO AQUI: Em vez de abrir o Notion, troca para a aba Estúdio **
             alert("Vá para a aba 'Meu Estúdio' para lançar sua música!");
-            switchTab(null, 'studioSection'); // Força a troca para a aba Estúdio
+            switchTab(null, 'studioSection');
         } else {
-            // Ação: Divulgar (ou qualquer outra)
-            // Chama a função original que salva os pontos no Airtable
             await performRPGAction(action, artistId);
         }
     }
 
-
-    // MODIFICADA: A lógica de 'launch_single' foi movida para o 'handleRPGAction'
     async function performRPGAction(action, artistId) {
-        // action: 'launch_single', 'promo', 'remix', 'event_win', 'collab'
-        // define pontos por ação (mesma sugestão de regras)
-        const actionPointsMap = {
-          // 'launch_single' foi removido daqui, pois não dá mais pontos diretamente
-          promo: 30,
-          remix: 70,
-          event: 40,
-          event_win: 120,
-          collab: 20
-        };
-        const cooldownMapSec = { 
-            // 'launch_single' removido
-            promo: 60 * 2, 
-            remix: 60 * 5, 
-            event_win: 60 * 10, 
-            collab: 60 * 4 
-        };
-
-        const points = actionPointsMap[action] || 0;
-        const cooldownSec = cooldownMapSec[action] || 60 * 2;
-
-        // Se a ação não estiver no mapa (ex: 'launch_single'), não faz nada
-        if (points === 0) {
-            console.warn(`Ação '${action}' não configurada para dar pontos.`);
+        // --- PROTEÇÃO DE LOGIN ---
+        if (!currentPlayer) {
+            alert("Você precisa estar logado no 'Meu Estúdio' para realizar ações.");
+            switchTab(null, 'studioSection');
             return;
         }
+        // --- PROTEÇÃO DE PROPRIEDADE ---
+        if (!currentPlayer.artists.includes(artistId)) {
+            alert("Você não pode divulgar ou gerenciar um artista que não é seu!");
+            return;
+        }
+
+        const actionPointsMap = { promo: 30, remix: 70, event: 40, event_win: 120, collab: 20 };
+        const cooldownMapSec = { promo: 60 * 2, remix: 60 * 5, event_win: 60 * 10, collab: 60 * 4 };
+        const points = actionPointsMap[action] || 0;
+        const cooldownSec = cooldownMapSec[action] || 60 * 2;
+        
+        if (points === 0) return;
 
         if (isOnCooldown(artistId, action, cooldownSec)) {
           alert('Ação em cooldown para este artista — espere um pouco.');
           return;
         }
-
-        // atualiza localActionCooldowns
         localActionCooldowns[`${artistId}_${action}`] = Date.now();
 
-        // atualiza objeto local db.artists
-        const artistEntry = db.artists.find(a => (a.id === artistId)); // Busca pelo ID do Airtable
-        if (!artistEntry) {
-          console.warn('Artista não encontrado', artistId);
-          return;
-        }
+        const artistEntry = db.artists.find(a => (a.id === artistId));
+        if (!artistEntry) return;
+        
         artistEntry.RPGPoints = Number(artistEntry.RPGPoints || 0) + points;
         artistEntry.LastActive = new Date().toISOString();
 
-        // opcional: salvar no Airtable (recomendado para multi-user)
-        // As constantes AIRTABLE_BASE_ID e AIRTABLE_API_KEY estão definidas no escopo global do DOMContentLoaded
-        if (typeof AIRTABLE_BASE_ID !== 'undefined' && typeof AIRTABLE_API_KEY !== 'undefined') {
-          try {
-            // artistEntry.id é o recordId do Airtable
-            const recordId = artistEntry.id; 
-            if (recordId) {
-              const patchBody = { fields: { 'RPGPoints': artistEntry.RPGPoints, 'LastActive': artistEntry.LastActive } };
-              await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Artists/${recordId}`, {
-                method: 'PATCH',
-                headers: {
-                  'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(patchBody)
-              }).then(r => r.json()).then(res => {
-                // opcional log
-                console.log('Airtable updated', res);
-              }).catch(err => {
-                console.warn('Falha ao salvar no Airtable (ignorado):', err);
-              });
-            }
-          } catch (err) {
-            console.warn('Erro ao tentar persistir no Airtable:', err);
-          }
-        } else {
-          // se sem Airtable, salva local (localStorage)
-          localStorage.setItem('rpg_artists_snapshot', JSON.stringify(db.artists));
+        try {
+          const recordId = artistEntry.id; 
+          const patchBody = { fields: { 'RPGPoints': artistEntry.RPGPoints, 'LastActive': artistEntry.LastActive } };
+          const response = await fetch(`https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Artists/${recordId}`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `Bearer ${AIRTABLE_API_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(patchBody)
+          });
+          if (!response.ok) throw new Error('Falha ao salvar no Airtable');
+          console.log(`Ação '${action}' de ${artistEntry.name} salva no Airtable.`);
+        } catch (err) {
+          console.warn('Erro ao tentar persistir no Airtable:', err);
+        }
+    }
+    
+
+    // --- 4. SISTEMA DO ESTÚDIO (LOGIN E FORMULÁRIOS) ---
+
+    /**
+     * Preenche os dropdowns de artista (ambos os formulários)
+     * APENAS com os artistas que o jogador logado possui.
+     */
+    function populateArtistSelector(playerId) {
+        const player = db.players.find(p => p.id === playerId);
+        if (!player) return;
+
+        const artistOptions = player.artists
+            .map(artistId => db.artists.find(a => a.id === artistId))
+            .filter(Boolean); // Remove artistas não encontrados (se houver)
+
+        // Limpa ambos os dropdowns
+        singleArtistSelect.innerHTML = '<option value="" disabled selected>Selecione seu artista...</option>';
+        albumArtistSelect.innerHTML = '<option value="" disabled selected>Selecione seu artista...</option>';
+
+        if (artistOptions.length === 0) {
+            singleArtistSelect.innerHTML = '<option value="" disabled>Você não possui artistas.</option>';
+            albumArtistSelect.innerHTML = '<option value="" disabled>Você não possui artistas.</option>';
+            return;
         }
 
-        // feedback pro jogador (função addLog não existe, usando console.log)
-        console.log(`Jogador aplicou ${points} pts em ${artistEntry.name} (ação ${action})`);
-    }
-    // ----------------- FIM DO CÓDIGO RPG -----------------
-    
-
-    // ----------------- NOVAS FUNÇÕES DO ESTÚDIO -----------------
-    
-    /**
-     * Popula o dropdown <select> no formulário do estúdio com os artistas do db.
-     */
-    function populateArtistSelector() {
-        const selectEl = document.getElementById('studioArtistSelect');
-        if (!selectEl) return;
-
-        // Limpa opções antigas (exceto a primeira "Selecione...")
-        selectEl.innerHTML = '<option value="" disabled selected>Selecione seu artista...</option>';
-        
-        // Adiciona cada artista do banco de dados
-        db.artists.forEach(artist => {
-            const option = document.createElement('option');
-            option.value = artist.id; // Salva o Record ID do Airtable
-            option.textContent = artist.name;
-            selectEl.appendChild(option);
+        artistOptions.forEach(artist => {
+            const option1 = document.createElement('option');
+            option1.value = artist.id;
+            option1.textContent = artist.name;
+            
+            const option2 = option1.cloneNode(true);
+            
+            singleArtistSelect.appendChild(option1);
+            albumArtistSelect.appendChild(option2);
         });
     }
 
     /**
-     * Função genérica para criar um novo registro em qualquer tabela do Airtable.
-     * @param {string} tableName - O nome da tabela (ex: "Músicas", "Singles e EPs")
-     * @param {object} fields - O objeto 'fields' para enviar.
+     * Define o jogador logado, salva no localStorage e atualiza a UI
+     */
+    function loginPlayer(playerId) {
+        currentPlayer = db.players.find(p => p.id === playerId);
+        if (!currentPlayer) return;
+
+        localStorage.setItem('spotifyRpg_playerId', playerId);
+        
+        document.getElementById('playerName').textContent = currentPlayer.name;
+        loginPrompt.classList.add('hidden');
+        loggedInInfo.classList.remove('hidden');
+        studioLaunchWrapper.classList.remove('hidden');
+
+        // Popula os dropdowns de artista com os artistas do jogador
+        populateArtistSelector(playerId);
+    }
+
+    /**
+     * Desloga o jogador
+     */
+    function logoutPlayer() {
+        currentPlayer = null;
+        localStorage.removeItem('spotifyRpg_playerId');
+
+        loginPrompt.classList.remove('hidden');
+        loggedInInfo.classList.add('hidden');
+        studioLaunchWrapper.classList.add('hidden');
+    }
+
+    /**
+     * Preenche o dropdown de login e verifica se o usuário já estava logado
+     */
+    function initializeStudio() {
+        // Popula o dropdown de jogadores
+        playerSelect.innerHTML = '<option value="" disabled selected>Selecione seu nome...</option>';
+        db.players.forEach(player => {
+            const option = document.createElement('option');
+            option.value = player.id;
+            option.textContent = player.name;
+            playerSelect.appendChild(option);
+        });
+
+        // Adiciona listeners de login/logout
+        loginButton.addEventListener('click', () => {
+            const selectedPlayerId = playerSelect.value;
+            if (selectedPlayerId) {
+                loginPlayer(selectedPlayerId);
+            }
+        });
+        logoutButton.addEventListener('click', logoutPlayer);
+
+        // Verifica se o jogador já estava logado no localStorage
+        const storedPlayerId = localStorage.getItem('spotifyRpg_playerId');
+        if (storedPlayerId) {
+            loginPlayer(storedPlayerId);
+        }
+        
+        // Listeners para as abas do estúdio (Single, Álbum)
+        studioTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                studioTabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                studioForms.forEach(form => form.classList.remove('active'));
+                document.getElementById(tab.dataset.form === 'single' ? 'newSingleForm' : 'newAlbumForm').classList.add('active');
+            });
+        });
+
+        // Configura o formulário de Álbum/EP
+        initAlbumForm();
+    }
+    
+    /**
+     * Função genérica para criar um novo registro no Airtable.
      */
     async function createAirtableRecord(tableName, fields) {
         const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(tableName)}`;
-        
         try {
             const response = await fetch(url, {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ fields })
+                headers: { 'Authorization': `Bearer ${AIRTABLE_API_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ "records": [{ fields }] }) // Formato correto para criar múltiplos
             });
-
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(`Erro do Airtable: ${errorData.error.message}`);
+                throw new Error(`Erro do Airtable: ${JSON.stringify(errorData.error)}`);
             }
-
-            return await response.json();
-
+            const data = await response.json();
+            return data.records[0]; // Retorna o primeiro registro criado
         } catch (error) {
             console.error(`Falha ao criar registro na tabela ${tableName}:`, error);
             return null;
@@ -604,111 +670,254 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     /**
-     * Processa o envio do formulário de novo single.
+     * Processa o envio do formulário de NOVO SINGLE.
      */
     async function handleSingleSubmit(event) {
-        event.preventDefault(); // Impede o recarregamento da página
-        
+        event.preventDefault();
         const submitButton = document.getElementById('submitNewSingle');
         submitButton.disabled = true;
         submitButton.textContent = 'Lançando...';
 
         try {
-            // --- 1. Coletar dados do formulário ---
-            const artistId = document.getElementById('studioArtistSelect').value;
+            const artistId = singleArtistSelect.value;
             const singleTitle = document.getElementById('singleTitle').value;
             const singleCoverUrl = document.getElementById('singleCoverUrl').value;
             const trackName = document.getElementById('trackName').value;
             const trackDurationStr = document.getElementById('trackDuration').value;
 
-            // --- 2. Validar e formatar dados ---
-            if (!artistId || !singleTitle || !singleCoverUrl || !trackName || !trackDurationStr) {
-                throw new Error("Por favor, preencha todos os campos.");
-            }
-
-            // Converter duração "MM:SS" para segundos
+            if (!artistId) throw new Error("Selecione um artista.");
+            
             const parts = trackDurationStr.split(':');
             const durationInSeconds = (parseInt(parts[0], 10) * 60) + parseInt(parts[1], 10);
-            if (isNaN(durationInSeconds)) {
-                throw new Error("Formato de duração inválido. Use MM:SS");
-            }
+            if (isNaN(durationInSeconds)) throw new Error("Formato de duração inválido. Use MM:SS");
 
-            // --- 3. Criar o registro da Música ---
+            // 1. Criar a Música
             const musicFields = {
-                "Nome da Faixa": trackName,
-                "Duração": durationInSeconds,
-                "Nº da Faixa": 1,
-                "Artista": [artistId] // Link para o artista
+                "Nome da Faixa": trackName, "Duração": durationInSeconds,
+                "Nº da Faixa": 1, "Artista": [artistId]
             };
-            
-            console.log("Criando música...", musicFields);
             const newSong = await createAirtableRecord('Músicas', musicFields);
-            if (!newSong || !newSong.id) {
-                throw new Error("Falha ao criar o registro da música no Airtable.");
-            }
-            const newSongId = newSong.id;
-            console.log("Música criada:", newSongId);
+            if (!newSong || !newSong.id) throw new Error("Falha ao criar a música.");
 
-            // --- 4. Criar o registro do Single/EP, lincando a música ---
+            // 2. Criar o Single e lincar a música
             const singleFields = {
                 "Nome do Single/EP": singleTitle,
-                "Capa": [{ "url": singleCoverUrl }], // Formato de anexo do Airtable
-                "Músicas": [newSongId], // Link para a música
-                "Artista": [artistId], // Link para o artista
-                "Data de Lançamento": new Date().toISOString().split('T')[0] // Data de hoje
+                "Capa": [{ "url": singleCoverUrl }],
+                "Músicas": [newSong.id],
+                "Artista": [artistId],
+                "Data de Lançamento": new Date().toISOString().split('T')[0]
             };
-
-            console.log("Criando single...", singleFields);
             const newSingle = await createAirtableRecord('Singles e EPs', singleFields);
-            if (!newSingle || !newSingle.id) {
-                // Idealmente, deveríamos deletar a música órfã, mas vamos simplificar por enquanto
-                throw new Error("Falha ao criar o registro do single no Airtable.");
-            }
-            console.log("Single criado:", newSingle.id);
+            if (!newSingle || !newSingle.id) throw new Error("Falha ao criar o single.");
 
-            // --- 5. Sucesso ---
-            alert("Single lançado com sucesso! A página será recarregada para atualizar os dados.");
-            window.location.reload(); // Recarrega a página para ver as mudanças
+            alert("Single lançado com sucesso! Atualizando os dados...");
+            newSingleForm.reset();
+            await refreshAllData(); // Recarrega os dados sem dar reload na página
 
         } catch (error) {
             alert(`Erro ao lançar single: ${error.message}`);
+        } finally {
             submitButton.disabled = false;
             submitButton.textContent = 'Lançar Single';
         }
     }
-    // ----------------- FIM DAS NOVAS FUNÇÕES -----------------
+    
+    /**
+     * [NOVO] Configura o formulário de Álbum/EP (Drag-and-Drop)
+     */
+    function initAlbumForm() {
+        if (!albumTracklistEditor) return;
+        
+        // 1. Inicia o Sortable.js
+        albumTracklistSortable = Sortable.create(albumTracklistEditor, {
+            handle: '.drag-handle', // Define qual elemento pode ser usado para arrastar
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+            onEnd: updateTrackNumbers // Chama a função para re-numerar as faixas
+        });
 
+        // 2. Listener para adicionar faixa
+        addTrackButton.addEventListener('click', addNewTrackInput);
+
+        // 3. Listener para deletar faixa (usando delegação de evento)
+        albumTracklistEditor.addEventListener('click', (e) => {
+            if (e.target.classList.contains('delete-track-btn') || e.target.closest('.delete-track-btn')) {
+                e.target.closest('.track-list-item').remove();
+                updateTrackNumbers();
+            }
+        });
+        
+        // 4. Adiciona a primeira faixa automaticamente
+        addNewTrackInput();
+    }
+    
+    /**
+     * [NOVO] Adiciona uma nova linha de input de faixa no formulário de álbum
+     */
+    function addNewTrackInput() {
+        const trackCount = albumTracklistEditor.children.length + 1;
+        const trackItem = document.createElement('div');
+        trackItem.className = 'track-list-item';
+        
+        trackItem.innerHTML = `
+            <i class="fas fa-bars drag-handle"></i>
+            <div class="track-inputs">
+                <span class="track-number">${trackCount}.</span>
+                <input type="text" class="album-track-name" placeholder="Nome da Faixa" required>
+                <input type="text" class="album-track-duration" placeholder="MM:SS" pattern="\\d{1,2}:\\d{2}" required>
+            </div>
+            <button type="button" class="delete-track-btn"><i class="fas fa-trash"></i></button>
+        `;
+        albumTracklistEditor.appendChild(trackItem);
+    }
+    
+    /**
+     * [NOVO] Atualiza os números das faixas (ex: 1., 2., 3.) após arrastar ou deletar
+     */
+    function updateTrackNumbers() {
+        const tracks = albumTracklistEditor.querySelectorAll('.track-list-item');
+        tracks.forEach((track, index) => {
+            track.querySelector('.track-number').textContent = `${index + 1}.`;
+        });
+    }
+    
+    /**
+     * [NOVO] Processa o envio do formulário de NOVO ÁLBUM/EP.
+     */
+    async function handleAlbumSubmit(event) {
+        event.preventDefault();
+        const submitButton = document.getElementById('submitNewAlbum');
+        submitButton.disabled = true;
+        submitButton.textContent = 'Lançando...';
+
+        try {
+            // 1. Coletar dados do álbum
+            const artistId = albumArtistSelect.value;
+            const albumTitle = document.getElementById('albumTitle').value;
+            const albumCoverUrl = document.getElementById('albumCoverUrl').value;
+
+            if (!artistId) throw new Error("Selecione um artista.");
+
+            // 2. Coletar dados das faixas (NA ORDEM CORRETA)
+            const trackInputs = albumTracklistEditor.querySelectorAll('.track-list-item');
+            if (trackInputs.length === 0) throw new Error("Adicione pelo menos uma faixa.");
+            
+            let trackPayloads = [];
+            for (let i = 0; i < trackInputs.length; i++) {
+                const trackEl = trackInputs[i];
+                const trackName = trackEl.querySelector('.album-track-name').value;
+                const durationStr = trackEl.querySelector('.album-track-duration').value;
+                
+                if (!trackName || !durationStr) throw new Error(`Preencha todos os campos da Faixa ${i + 1}.`);
+                
+                const parts = durationStr.split(':');
+                const durationInSeconds = (parseInt(parts[0], 10) * 60) + parseInt(parts[1], 10);
+                if (isNaN(durationInSeconds)) throw new Error(`Formato de duração inválido na Faixa ${i + 1}. Use MM:SS`);
+
+                trackPayloads.push({
+                    "fields": {
+                        "Nome da Faixa": trackName,
+                        "Duração": durationInSeconds,
+                        "Nº da Faixa": i + 1,
+                        "Artista": [artistId]
+                    }
+                });
+            }
+
+            // 3. Criar todas as músicas de uma vez (Batch Create)
+            console.log("Criando músicas...", trackPayloads);
+            const newSongs = await batchCreateAirtableRecords('Músicas', trackPayloads);
+            if (!newSongs || newSongs.length === 0) throw new Error("Falha ao criar as músicas no Airtable.");
+            
+            const newSongIds = newSongs.map(song => song.id);
+
+            // 4. Determinar se é Álbum ou EP (usaremos a tabela 'Álbuns' para ambos)
+            // Você pode criar uma tabela separada ou um campo 'Tipo' se quiser diferenciar
+            const albumFields = {
+                "Nome do Álbum": albumTitle,
+                "Capa": [{ "url": albumCoverUrl }],
+                "Músicas": newSongIds,
+                "Artista": [artistId],
+                "Data de Lançamento": new Date().toISOString().split('T')[0]
+            };
+            
+            // 5. Criar o Álbum e lincar as músicas
+            console.log("Criando álbum...", albumFields);
+            const newAlbum = await createAirtableRecord('Álbuns', albumFields);
+            if (!newAlbum || !newAlbum.id) throw new Error("Falha ao criar o álbum.");
+
+            alert("Álbum lançado com sucesso! Atualizando os dados...");
+            newAlbumForm.reset();
+            albumTracklistEditor.innerHTML = ''; // Limpa as faixas
+            addNewTrackInput(); // Adiciona uma faixa nova
+            await refreshAllData(); // Recarrega tudo
+
+        } catch (error) {
+            alert(`Erro ao lançar álbum: ${error.message}`);
+        } finally {
+            submitButton.disabled = false;
+            submitButton.textContent = 'Lançar Álbum / EP';
+        }
+    }
+    
+    /**
+     * [NOVO] Função para criar múltiplos registros de uma vez (Batch)
+     */
+    async function batchCreateAirtableRecords(tableName, records) {
+        const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(tableName)}`;
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${AIRTABLE_API_KEY}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ records }) // Envia o array de records
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(`Erro do Airtable: ${JSON.stringify(errorData.error)}`);
+            }
+            const data = await response.json();
+            return data.records; // Retorna o array de registros criados
+        } catch (error) {
+            console.error(`Falha ao criar registros em batch na tabela ${tableName}:`, error);
+            return null;
+        }
+    }
+
+
+    // --- 5. INICIALIZAÇÃO GERAL ---
 
     document.body.addEventListener('click', (e) => {
         const target = e.target;
-
         const chartItem = target.closest('.chart-item');
-        // Impede que os cliques nos botões de ação do RPG abram o artista
         if (chartItem && !target.closest('.btn-action')) {
-            const { type, artistName, albumId } = chartItem.dataset;
+            const { type, artistName, albumId, id } = chartItem.dataset;
+            // Se for do RPG chart, não faz nada (ainda)
+            if (chartItem.classList.contains('rpg-chart-item')) {
+                 openArtistDetail(artistName); // Abre o artista ao clicar
+                 return;
+            }
+            // Se for chart de música, abre o álbum
             if (type === 'music') openAlbumDetail(albumId);
+            // Se for chart de álbum, abre o álbum
+            else if (type === 'album') openAlbumDetail(id); 
             else openArtistDetail(artistName);
             return;
         }
-
         const clickableArtist = target.closest('.clickable-artist');
         if (clickableArtist) {
             openArtistDetail(clickableArtist.dataset.artistName);
             return;
         }
-
         const artistCard = target.closest('.artist-card');
         if (artistCard) {
             openArtistDetail(artistCard.dataset.artistName);
             return;
         }
-
         const albumCard = target.closest('[data-album-id]');
         if (albumCard) {
             openAlbumDetail(albumCard.dataset.albumId);
             return;
         }
-
         const seeAllBtn = target.closest('.see-all-btn');
         if (seeAllBtn) {
             openDiscographyDetail(seeAllBtn.dataset.type);
@@ -716,31 +925,37 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // --- INICIALIZAÇÃO ---
-    initializeData();
+    // --- Ponto de Partida ---
+    
+    // 1. Carrega todos os dados
+    const data = await loadAllData();
+    
+    // 2. Coloca os dados no 'db' local
+    initializeData(data);
 
-    // ** MODIFICAÇÃO AQUI: Popula o dropdown do estúdio **
-    populateArtistSelector();
-
-    // ** MODIFICAÇÃO AQUI: Adiciona o listener para o novo formulário **
+    // 3. Configura o Estúdio (Login, Formulários, etc.)
+    initializeStudio();
+    
+    // 4. Adiciona listeners aos formulários
     if (newSingleForm) {
         newSingleForm.addEventListener('submit', handleSingleSubmit);
     }
+    if (newAlbumForm) {
+        newAlbumForm.addEventListener('submit', handleAlbumSubmit);
+    }
     
-    // Inicializa o RPG Chart
+    // 5. Inicializa o RPG Chart (que cria sua própria aba)
     renderRPGChart();
     setInterval(() => {
-      // recalc e re-render a cada 30s (ou 60s)
       renderRPGChart();
     }, 30 * 1000);
     
+    // 6. Adiciona listeners de busca e navegação
     searchInput.addEventListener('input', handleSearch);
-    
-    // ** MODIFICAÇÃO AQUI: Garante que todos os botões de navegação funcionem **
     const allNavs = [...document.querySelectorAll('.nav-tab'), ...document.querySelectorAll('.bottom-nav-item')];
     allNavs.forEach(nav => nav.addEventListener('click', switchTab));
 
-    // Renderiza o conteúdo inicial
+    // 7. Renderiza o conteúdo inicial
     renderArtistsGrid('homeGrid', [...db.artists].sort(() => 0.5 - Math.random()).slice(0, 10));
     renderArtistsGrid('artistsGrid', db.artists);
     renderChart('music');
@@ -748,8 +963,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupCountdown('musicCountdownTimer', () => renderChart('music'));
     setupCountdown('albumCountdownTimer', () => renderChart('album'));
 
-    // ** AJUSTE FINAL: Corrige a view inicial **
-    // Assegura que a mainView e o topbar estejam visíveis no início
+    // 8. Ajuste final da view inicial
     document.getElementById('mainView').classList.remove('hidden');
     document.querySelector('.topbar').classList.remove('hidden');
 });
