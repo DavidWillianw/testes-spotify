@@ -426,7 +426,55 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const handleSearch = () => { /* ... sem mudanças ... */ };
-    const switchTab = (event, forceTabId = null) => { /* ... sem mudanças ... */ };
+    // --- SUBSTITUA ESTA FUNÇÃO NO SEU script.js ---
+
+    const switchTab = (event, forceTabId = null) => {
+        const tabId = forceTabId || (event.currentTarget ? event.currentTarget.dataset.tab : 'homeSection');
+        const isTargetingStudio = (tabId === 'studioSection');
+        const currentViewId = viewHistory[viewHistory.length - 1];
+
+        console.log(`Switching tab to: ${tabId}, Current View: ${currentViewId}`); // Log para debug
+
+        // 1. DECIDIR A VIEW DE DESTINO E TROCAR SE NECESSÁRIO
+        let targetViewId = 'mainView'; // Assume que a maioria das tabs pertence à mainView
+        if (isTargetingStudio) {
+            targetViewId = 'studioView';
+        }
+        // Adicione outras views aqui se necessário (ex: if (tabId === 'profileSection') targetViewId = 'profileView';)
+
+        // Só chama switchView se a view de destino for DIFERENTE da atual
+        if (targetViewId !== currentViewId) {
+            console.log(`Switching view from ${currentViewId} to ${targetViewId}`);
+            switchView(targetViewId); // Esconde/mostra as divs .page-view
+        }
+
+        // 2. ATUALIZAR ESTADO ATIVO DOS BOTÕES (SEMPRE FAZ ISSO)
+        // Usa querySelectorAll DENTRO da função para pegar botões adicionados dinamicamente
+        const dynamicAllNavs = [...document.querySelectorAll('.nav-tab'), ...document.querySelectorAll('.bottom-nav-item')];
+        dynamicAllNavs.forEach(nav => {
+            nav.classList.toggle('active', nav.dataset.tab === tabId);
+        });
+
+        // 3. ATIVAR A SEÇÃO DE CONTEÚDO CORRETA *APENAS SE* ESTAMOS NA MAINVIEW
+        // Verifica se a mainView está visível (não tem a classe 'hidden')
+        const mainViewElement = document.getElementById('mainView');
+        if (mainViewElement && !mainViewElement.classList.contains('hidden')) {
+             console.log(`Updating content sections within mainView for tabId: ${tabId}`);
+            // Esconde todas as seções de conteúdo dentro da mainView primeiro
+             document.querySelectorAll('#mainView .content-section').forEach(s => s.classList.remove('active'));
+             // Ativa a seção correspondente ao tabId
+             const sectionToActivate = document.getElementById(tabId);
+             if (sectionToActivate && sectionToActivate.classList.contains('content-section')) {
+                 sectionToActivate.classList.add('active');
+             } else if (tabId !== 'studioSection') { // Não mostra erro se for a tab do estúdio
+                 console.warn(`Content section with ID "${tabId}" not found or not a content section within mainView.`);
+             }
+        } else {
+            console.log("Not updating content sections because not on mainView.");
+        }
+    };
+
+    // --- FIM DA SUBSTITUIÇÃO ---
     const setupCountdown = (timerId, callback) => { /* ... sem mudanças ... */ };
 
 
