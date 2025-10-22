@@ -38,12 +38,11 @@
           </button>
           <button class="nav-tab" data-tab="artistsSection">Artistas</button>
           <button class="nav-tab" data-tab="studioSection">Meu Estúdio</button>
-          <button class="nav-tab" data-tab="participacoesSection">Participações</button>
-        </nav>
+          </nav>
       </header>
 
       <main class="main-container">
-         <section id="homeSection" class="content-section active">
+        <section id="homeSection" class="content-section active">
           <h2 class="section-title">Artistas em Destaque</h2>
           <div id="homeGrid" class="artists-grid"></div>
         </section>
@@ -63,7 +62,7 @@
         </section>
         <section id="artistsSection" class="content-section">
           <h2 class="section-title">Todos os Artistas</h2>
-           <div id="artistsGrid" class="artists-grid"></div>
+          <div id="artistsGrid" class="artists-grid"></div>
         </section>
         <section id="searchSection" class="content-section">
           <h2 class="section-title">Resultados da Busca</h2>
@@ -73,13 +72,7 @@
             <p>Não encontramos nada.</p>
           </div>
         </section>
-        <section id="participacoesSection" class="content-section">
-          <h2 class="section-title">Músicas com Participações</h2>
-          <div id="participacoesList" class="chart-list">
-             <p>Carregando participações...</p>
-          </div>
-        </section>
-      </main>
+        </main>
     </div>
 
     <div id="artistDetail" class="page-view hidden">
@@ -155,7 +148,7 @@
           <h2 class="section-title">Meu Estúdio</h2>
 
           <div class="studio-login-wrapper">
-             <div id="loginPrompt">
+            <div id="loginPrompt">
               <label for="playerSelect">Quem é você?</label>
               <select id="playerSelect">
                 <option value="">Carregando jogadores...</option>
@@ -183,7 +176,7 @@
               <div class="studio-form-group">
                 <label for="singleArtistSelect">Artista Principal</label>
                 <select id="singleArtistSelect" required>
-                  <option value="">Selecione...</option>
+                  <option value="">Selecione um jogador...</option>
                 </select>
               </div>
               <div class="studio-form-group">
@@ -205,10 +198,10 @@
                 <input type="text" id="trackDuration" placeholder="Ex: 3:45" pattern="\d{1,2}:\d{2}" required />
               </div>
               <div class="feat-section">
-                  <label>Participações (Feat.)</label>
-                  <div class="feat-list" id="singleFeatList">
-                      </div>
-                  <button type="button" class="small-btn add-feat-btn" data-target="single"><i class="fas fa-plus"></i> Adicionar Feat</button>
+                <label>Participações (Feat.)</label>
+                <div class="feat-list" id="singleFeatList">
+                </div>
+                <button type="button" class="small-btn add-feat-btn" data-target="single"><i class="fas fa-plus"></i> Adicionar Feat</button>
               </div>
               <button type="submit" class="submit-btn" id="submitNewSingle"> Lançar Single </button>
             </form>
@@ -218,7 +211,7 @@
               <div class="studio-form-group">
                 <label for="albumArtistSelect">Artista Principal</label>
                 <select id="albumArtistSelect" required>
-                  <option value="">Selecione...</option>
+                  <option value="">Selecione um jogador...</option>
                 </select>
               </div>
               <div class="studio-form-group">
@@ -232,7 +225,7 @@
               <hr class="form-divider" />
               <h4> Tracklist <span class="track-helper">(Arraste <i class="fas fa-bars"></i> para reordenar)</span></h4>
               <div id="albumTracklistEditor" class="track-list-editor">
-                </div>
+              </div>
               <button type="button" class="small-btn" id="addTrackButton"><i class="fas fa-plus"></i> Adicionar Faixa</button>
               <hr class="form-divider" />
               <button type="submit" class="submit-btn" id="submitNewAlbum"> Lançar Álbum / EP </button>
@@ -242,29 +235,29 @@
       </main>
     </div>
 
-     <div id="featModal" class="modal-overlay hidden">
-        <div class="modal-content">
-            <h3>Adicionar Participação</h3>
-            <div class="studio-form-group">
-                <label for="featArtistSelect">Selecionar Artista</label>
-                <select id="featArtistSelect">
-                    <option value="">Carregando...</option>
-                </select>
-            </div>
-             <div class="studio-form-group">
-                <label for="featTypeSelect">Tipo de Colaboração</label>
-                <select id="featTypeSelect">
-                    <option value="Feat.">Feat. (Participação Curta)</option>
-                    <option value="Dueto/Grupo">Dueto / Grupo (&)</option>
-                    {/* */}
-                </select>
-            </div>
-            <div class="modal-actions">
-                <button type="button" class="submit-btn" id="confirmFeatBtn">Adicionar</button>
-                <button type="button" class="cancel-btn" id="cancelFeatBtn">Cancelar</button>
-            </div>
+    <div id="featModal" class="modal-overlay hidden">
+      <div class="modal-content">
+        <h3>Adicionar Participação</h3>
+        <div class="studio-form-group">
+          <label for="featArtistSelect">Selecionar Artista</label>
+          <select id="featArtistSelect">
+            <option value="">Carregando...</option>
+          </select>
         </div>
+        <div class="studio-form-group">
+          <label for="featTypeSelect">Tipo de Colaboração</label>
+          <select id="featTypeSelect">
+            <option value="Feat.">Feat. (Participação Curta)</option>
+            <option value="Dueto/Grupo">Dueto / Grupo (&)</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="submit-btn" id="confirmFeatBtn">Adicionar</button>
+          <button type="button" class="cancel-btn" id="cancelFeatBtn">Cancelar</button>
+        </div>
+      </div>
     </div>
+
 
     <nav class="bottom-nav">
       <button class="bottom-nav-item active" data-tab="homeSection">
@@ -282,12 +275,7 @@
       <button class="bottom-nav-item" data-tab="studioSection">
         <i class="fas fa-microphone-alt"></i><span>Estúdio</span>
       </button>
-       <button class="bottom-nav-item" data-tab="participacoesSection">
-        <i class="fas fa-handshake"></i><span>Feats</span>
-      </button>
-    </nav>
-
-    <script src="open.spotify.com/playlist"></script>
+      </nav>
     <script src="script.js"></script>
   </body>
 </html>
