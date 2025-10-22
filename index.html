@@ -13,23 +13,10 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
-
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <div id="loginOverlay">
-      <div class="login-content">
-        <h2>Conecte-se ao Spotify</h2>
-        <p>
-          Para ouvir as músicas do jogo, você precisa conectar sua conta Premium
-          do Spotify.
-        </p>
-        <button id="loginBtn" class="btn-primary">
-          <i class="fab fa-spotify"></i> Conectar com Spotify
-        </button>
-      </div>
-    </div>
-
     <div id="mainView" class="page-view">
       <header class="topbar">
         <div class="search-bar">
@@ -50,31 +37,33 @@
             Top Álbuns
           </button>
           <button class="nav-tab" data-tab="artistsSection">Artistas</button>
+          <button class="nav-tab" data-tab="studioSection">Meu Estúdio</button>
+          <button class="nav-tab" data-tab="participacoesSection">Participações</button>
         </nav>
       </header>
 
       <main class="main-container">
-        <section id="homeSection" class="content-section active">
+         <section id="homeSection" class="content-section active">
           <h2 class="section-title">Artistas em Destaque</h2>
           <div id="homeGrid" class="artists-grid"></div>
         </section>
         <section id="musicChartsSection" class="content-section">
           <div class="chart-header">
             <h3>🔥 Top Músicas da Semana</h3>
-            <p id="musicCountdownTimer"></p>
+            <p>Atualiza em <span id="musicCountdownTimer"></span></p>
           </div>
           <div id="musicChartsList" class="chart-list"></div>
         </section>
         <section id="albumChartsSection" class="content-section">
           <div class="chart-header">
             <h3>💿 Top Álbuns da Semana</h3>
-            <p id="albumCountdownTimer"></p>
+            <p>Atualiza em <span id="albumCountdownTimer"></span></p>
           </div>
           <div id="albumChartsList" class="chart-list"></div>
         </section>
         <section id="artistsSection" class="content-section">
           <h2 class="section-title">Todos os Artistas</h2>
-          <div id="artistsGrid" class="artists-grid"></div>
+           <div id="artistsGrid" class="artists-grid"></div>
         </section>
         <section id="searchSection" class="content-section">
           <h2 class="section-title">Resultados da Busca</h2>
@@ -82,6 +71,12 @@
           <div id="noResults" class="no-results hidden">
             <i class="fas fa-compact-disc"></i>
             <p>Não encontramos nada.</p>
+          </div>
+        </section>
+        <section id="participacoesSection" class="content-section">
+          <h2 class="section-title">Músicas com Participações</h2>
+          <div id="participacoesList" class="chart-list">
+             <p>Carregando participações...</p>
           </div>
         </section>
       </main>
@@ -99,7 +94,6 @@
           <div class="verified-artist">
             <i class="fas fa-check-circle"></i> Artista Verificado
           </div>
-          <div id="artistTotalStreams" class="artist-stats"></div>
           <div class="page-actions">
             <button class="main-play-btn"><i class="fas fa-play"></i></button>
             <button class="follow-btn">SEGUIR</button>
@@ -116,7 +110,7 @@
           </div>
           <div class="horizontal-scroll-list" id="albumsList"></div>
           <div class="section-header">
-            <h3>Singles</h3>
+            <h3>Singles & EPs</h3>
             <span class="see-all-btn" data-type="singles">Ver todos</span>
           </div>
           <div class="horizontal-scroll-list" id="singlesList"></div>
@@ -155,6 +149,123 @@
       </main>
     </div>
 
+    <div id="studioView" class="page-view hidden">
+      <main class="main-container">
+        <section id="studioSection" class="content-section active">
+          <h2 class="section-title">Meu Estúdio</h2>
+
+          <div class="studio-login-wrapper">
+             <div id="loginPrompt">
+              <label for="playerSelect">Quem é você?</label>
+              <select id="playerSelect">
+                <option value="">Carregando jogadores...</option>
+              </select>
+              <button class="submit-btn" id="loginButton">Entrar</button>
+            </div>
+            <div id="loggedInInfo" class="hidden">
+              <p>Logado como: <strong id="playerName"></strong></p>
+              <button class="small-btn" id="logoutButton">Sair</button>
+            </div>
+          </div>
+
+          <div id="studioLaunchWrapper" class="hidden">
+            <nav class="studio-tabs">
+              <button class="studio-tab-btn active" data-form="single">
+                Lançar Single
+              </button>
+              <button class="studio-tab-btn" data-form="album">
+                Lançar Álbum / EP
+              </button>
+            </nav>
+
+            <form id="newSingleForm" class="studio-form studio-form-content active">
+              <h3>🚀 Lançar Novo Single</h3>
+              <div class="studio-form-group">
+                <label for="singleArtistSelect">Artista Principal</label>
+                <select id="singleArtistSelect" required>
+                  <option value="">Selecione...</option>
+                </select>
+              </div>
+              <div class="studio-form-group">
+                <label for="singleTitle">Nome do Single</label>
+                <input type="text" id="singleTitle" placeholder="Ex: After Like" required />
+              </div>
+              <div class="studio-form-group">
+                <label for="singleCoverUrl">URL da Capa</label>
+                <input type="url" id="singleCoverUrl" placeholder="https://i.imgur.com/..." required />
+              </div>
+              <hr class="form-divider" />
+              <h4>Informações da Faixa</h4>
+              <div class="studio-form-group">
+                <label for="trackName">Nome da Faixa</label>
+                <input type="text" id="trackName" placeholder="Ex: After Like" required />
+              </div>
+              <div class="studio-form-group">
+                <label for="trackDuration">Duração (formato MM:SS)</label>
+                <input type="text" id="trackDuration" placeholder="Ex: 3:45" pattern="\d{1,2}:\d{2}" required />
+              </div>
+              <div class="feat-section">
+                  <label>Participações (Feat.)</label>
+                  <div class="feat-list" id="singleFeatList">
+                      </div>
+                  <button type="button" class="small-btn add-feat-btn" data-target="single"><i class="fas fa-plus"></i> Adicionar Feat</button>
+              </div>
+              <button type="submit" class="submit-btn" id="submitNewSingle"> Lançar Single </button>
+            </form>
+
+            <form id="newAlbumForm" class="studio-form studio-form-content">
+              <h3>💿 Lançar Novo Álbum / EP</h3>
+              <div class="studio-form-group">
+                <label for="albumArtistSelect">Artista Principal</label>
+                <select id="albumArtistSelect" required>
+                  <option value="">Selecione...</option>
+                </select>
+              </div>
+              <div class="studio-form-group">
+                <label for="albumTitle">Nome do Álbum / EP</label>
+                <input type="text" id="albumTitle" placeholder="Ex: I've IVE" required />
+              </div>
+              <div class="studio-form-group">
+                <label for="albumCoverUrl">URL da Capa</label>
+                <input type="url" id="albumCoverUrl" placeholder="https://i.imgur.com/..." required />
+              </div>
+              <hr class="form-divider" />
+              <h4> Tracklist <span class="track-helper">(Arraste <i class="fas fa-bars"></i> para reordenar)</span></h4>
+              <div id="albumTracklistEditor" class="track-list-editor">
+                </div>
+              <button type="button" class="small-btn" id="addTrackButton"><i class="fas fa-plus"></i> Adicionar Faixa</button>
+              <hr class="form-divider" />
+              <button type="submit" class="submit-btn" id="submitNewAlbum"> Lançar Álbum / EP </button>
+            </form>
+          </div>
+        </section>
+      </main>
+    </div>
+
+     <div id="featModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h3>Adicionar Participação</h3>
+            <div class="studio-form-group">
+                <label for="featArtistSelect">Selecionar Artista</label>
+                <select id="featArtistSelect">
+                    <option value="">Carregando...</option>
+                </select>
+            </div>
+             <div class="studio-form-group">
+                <label for="featTypeSelect">Tipo de Colaboração</label>
+                <select id="featTypeSelect">
+                    <option value="Feat.">Feat. (Participação Curta)</option>
+                    <option value="Dueto/Grupo">Dueto / Grupo (&)</option>
+                    {/* */}
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="submit-btn" id="confirmFeatBtn">Adicionar</button>
+                <button type="button" class="cancel-btn" id="cancelFeatBtn">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
     <nav class="bottom-nav">
       <button class="bottom-nav-item active" data-tab="homeSection">
         <i class="fas fa-home"></i><span>Início</span>
@@ -168,37 +279,15 @@
       <button class="bottom-nav-item" data-tab="artistsSection">
         <i class="fas fa-users"></i><span>Artistas</span>
       </button>
+      <button class="bottom-nav-item" data-tab="studioSection">
+        <i class="fas fa-microphone-alt"></i><span>Estúdio</span>
+      </button>
+       <button class="bottom-nav-item" data-tab="participacoesSection">
+        <i class="fas fa-handshake"></i><span>Feats</span>
+      </button>
     </nav>
-    
-    <div id="spotifyPlayerBar" class="player-bar">
-        <div class="player-track-info">
-            <img id="playerCover" src="https://i.imgur.com/AD3MbBi.png" alt="Capa do Álbum">
-            <div>
-                <div id="playerTitle" class="clickable">Música</div>
-                <div id="playerArtist">Artista</div>
-            </div>
-        </div>
-        <div class="player-controls">
-            <div class="player-control-buttons">
-                <button id="prevBtn" class="player-icon-btn"><i class="fas fa-step-backward"></i></button>
-                <button id="playPauseBtn" class="player-play-btn"><i class="fas fa-play"></i></button>
-                <button id="nextBtn" class="player-icon-btn"><i class="fas fa-step-forward"></i></button>
-            </div>
-            <div class="player-progress-bar">
-                <span id="currentTime">0:00</span>
-                <div id="progressContainer" class="progress-container">
-                    <div id="progressBar" class="progress-bar-fill"></div>
-                </div>
-                <span id="totalTime">0:00</span>
-            </div>
-        </div>
-        <div class="player-extra-controls">
-            <i class="fas fa-desktop"></i>
-            <span>Ouvindo em <strong id="deviceName">...</strong></span>
-        </div>
-    </div>
 
-    <script src="https://sdk.scdn.co/spotify-player.js"></script>
+    <script src="open.spotify.com/playlist"></script>
     <script src="script.js"></script>
   </body>
 </html>
