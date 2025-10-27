@@ -935,14 +935,18 @@ const renderChart = (type) => {
         loadSong(song);
         musicPlayerView.classList.remove('hidden');
         document.body.classList.add('player-open');
-        playAudio();
+        
+        // playAudio(); // <-- DESATIVADO PARA MODO VISUAL
     }
 
     function closePlayer() {
         musicPlayerView.classList.add('hidden');
         document.body.classList.remove('player-open');
-        // Decidimos não parar a música ao fechar, mas você pode adicionar pauseAudio() aqui se preferir
-        // pauseAudio(); 
+        
+        // Se o player estava "visualmente" tocando, pausa ao fechar
+        if (isPlaying) {
+            togglePlay();
+        }
     }
 
     function loadSong(song) {
@@ -961,28 +965,31 @@ const renderChart = (type) => {
             playerAlbumTitle.textContent = 'Single';
         }
 
-        // *** IMPORTANTE: SIMULAÇÃO DE ÁUDIO ***
-        // No mundo real, você usaria song.audioUrl ou algo do seu DB
-        audioElement.src = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
-        audioElement.load();
+        // *** ÁUDIO DESATIVADO PARA MODO VISUAL ***
+        // audioElement.src = 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3';
+        // audioElement.load();
         
-        playerSeekBar.value = 0; // Reseta a barra
+        // Define tempos e barra de seek visuais
+        const durationSec = song.durationSeconds || 180; // Pega a duração real ou usa 3:00 (180s)
+        playerSeekBar.value = 0;
+        playerSeekBar.max = durationSec;
         playerCurrentTime.textContent = "0:00";
-        playerTotalTime.textContent = "0:00";
+        playerTotalTime.textContent = formatTime(durationSec); // Usa a duração real da música
     }
 
     function playAudio() {
-        audioElement.play().then(() => {
+        // DESATIVADO PARA MODO VISUAL
+        // audioElement.play().then(() => {
             isPlaying = true;
             playerPlayPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
-        }).catch(error => {
-            console.error("Erro ao tocar áudio:", error);
-            isPlaying = false;
-        });
+        // }).catch(error => {
+        //     console.error("Erro ao tocar áudio:", error);
+        //     isPlaying = false;
+        // });
     }
 
     function pauseAudio() {
-        audioElement.pause();
+        // audioElement.pause(); // DESATIVADO PARA MODO VISUAL
         isPlaying = false;
         playerPlayPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
     }
@@ -1007,21 +1014,24 @@ const renderChart = (type) => {
                 currentQueueIndex = 0; // Volta ao início
             } else {
                 currentQueueIndex = currentQueue.length - 1; // Para no final
-                pauseAudio(); // Para de tocar
+                pauseAudio(); // Para de "tocar" visualmente
                 return;
             }
         }
         
         loadSong(currentQueue[currentQueueIndex]);
-        playAudio();
+        // Se estava tocando, continua tocando a próxima
+        if (isPlaying) {
+            playAudio();
+        }
     }
 
     function playPrevious() {
-        // Se a música estiver tocando por mais de 3 segundos, reinicie
-        if (audioElement.currentTime > 3) {
-            audioElement.currentTime = 0;
-            return;
-        }
+        // No modo visual, voltar sempre vai para a música anterior
+        // if (audioElement.currentTime > 3) { // Lógica de áudio removida
+        //     audioElement.currentTime = 0;
+        //     return;
+        // }
 
         if (isShuffle) {
             currentQueueIndex = Math.floor(Math.random() * currentQueue.length);
@@ -1038,7 +1048,10 @@ const renderChart = (type) => {
         }
 
         loadSong(currentQueue[currentQueueIndex]);
-        playAudio();
+        // Se estava tocando, continua tocando a anterior
+        if (isPlaying) {
+            playAudio();
+        }
     }
 
     function toggleShuffle() {
@@ -1071,6 +1084,7 @@ const renderChart = (type) => {
         return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
     }
 
+    // Esta função não é mais chamada, mas pode ser útil se um dia reativar
     function updateSeekBar() {
         if (!isNaN(audioElement.duration)) {
             playerSeekBar.value = audioElement.currentTime;
@@ -1086,24 +1100,28 @@ const renderChart = (type) => {
         playerShuffleBtn.addEventListener('click', toggleShuffle);
         playerRepeatBtn.addEventListener('click', toggleRepeat);
 
-        audioElement.addEventListener('loadedmetadata', () => {
-            playerSeekBar.max = audioElement.duration;
-            playerTotalTime.textContent = formatTime(audioElement.duration);
-        });
+        // --- LISTENERS DE ÁUDIO DESATIVADOS PARA MODO VISUAL ---
+        // audioElement.addEventListener('loadedmetadata', () => {
+        //     playerSeekBar.max = audioElement.duration;
+        //     playerTotalTime.textContent = formatTime(audioElement.duration);
+        // });
 
-        audioElement.addEventListener('timeupdate', updateSeekBar);
+        // O 'timeupdate' não vai disparar, então a barra não se move sozinha
+        // audioElement.addEventListener('timeupdate', updateSeekBar);
 
-        audioElement.addEventListener('ended', () => {
-            if (repeatMode === 'one') {
-                audioElement.currentTime = 0;
-                playAudio();
-            } else {
-                playNext();
-            }
-        });
+        // O 'ended' não vai disparar
+        // audioElement.addEventListener('ended', () => {
+        //     if (repeatMode === 'one') {
+        //         audioElement.currentTime = 0;
+        //         playAudio();
+        //     } else {
+        //         playNext();
+        //     }
+        // });
         
+        // Permite que o usuário arraste a barra e veja o tempo mudar
         playerSeekBar.addEventListener('input', () => {
-             audioElement.currentTime = playerSeekBar.value;
+             // audioElement.currentTime = playerSeekBar.value; // DESATIVADO
              playerCurrentTime.textContent = formatTime(playerSeekBar.value);
         });
     }
@@ -1148,7 +1166,7 @@ const renderChart = (type) => {
         if (!initializeDOMElements()) return;
 
         document.body.classList.add('loading');
-        const data = await loadAllData(); // <-- Esta linha agora vai funcionar
+        const data = await loadAllData(); 
 
         if (data && data.allArtists) {
             if (!initializeData(data)) return;
