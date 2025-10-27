@@ -71,7 +71,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             studioView = document.getElementById('studioView');
             loginPrompt = document.getElementById('loginPrompt');
             loggedInInfo = document.getElementById('loggedInInfo');
-            playerSelect = document.getElementById('playerSelect');
+            
+            // playerSelect NÃO é mais usado para login, mas é pego se outro código usar
+            playerSelect = document.getElementById('playerSelect'); 
+            
             loginButton = document.getElementById('loginButton');
             logoutButton = document.getElementById('logoutButton');
             studioLaunchWrapper = document.getElementById('studioLaunchWrapper');
@@ -140,7 +143,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // --- FIM DA INICIALIZAÇÃO DO PLAYER ---
 
 
-            const essentialElements = [ studioView, loginPrompt, playerSelect, newSingleForm, newAlbumForm, featModal, singleReleaseDateInput, albumReleaseDateInput, trackTypeModal, albumTrackModal, openAddTrackModalBtn, inlineFeatAdder, inlineFeatArtistSelect, confirmInlineFeatBtn, addInlineFeatBtn ];
+            const essentialElements = [ studioView, loginPrompt, /* playerSelect (agora é opcional) */, newSingleForm, newAlbumForm, featModal, singleReleaseDateInput, albumReleaseDateInput, trackTypeModal, albumTrackModal, openAddTrackModalBtn, inlineFeatAdder, inlineFeatArtistSelect, confirmInlineFeatBtn, addInlineFeatBtn ];
             if (!allViews || allViews.length === 0 || essentialElements.some(el => !el)) {
                  console.error("ERRO CRÍTICO: Elementos essenciais do HTML não foram encontrados!", { missing: essentialElements.map((el, i) => el ? null : `Index ${i}`).filter(Boolean) });
                 document.body.innerHTML = '<div style="color: red; padding: 20px;"><h1>Erro Interface</h1><p>Elementos não encontrados.</p></div>';
@@ -257,7 +260,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const formattedAlbums = formatReleases(albumsData.records, true);
             const formattedSingles = formatReleases(singlesData.records, false);
-            const formattedPlayers = (playersData?.records||[]).map(r => ({ id: r.id, name: r.fields.Nome, artists: r.fields.Artistas||[] }));
+            
+            // ==================================
+            // ========== JS ALTERADO =========
+            // ==================================
+            // Busca o nome, a senha e os artistas de cada jogador
+            const formattedPlayers = (playersData?.records||[]).map(r => ({ 
+                id: r.id, 
+                name: r.fields.Nome, 
+                password: r.fields.Senha, // <-- ADICIONADO
+                artists: r.fields.Artistas||[] 
+            }));
+            // ==================================
+            // ======== FIM DA ALTERAÇÃO ========
+            // ==================================
             
             console.log("Dados carregados.");
             return {
@@ -343,6 +359,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             });
 
+            // A 'data.players' agora contém a senha, que será armazenada em 'db.players'
             db.players = data.players || [];
 
             console.log(`DB Init: A${db.artists.length}, B${db.albums.length}, S${db.singles.length}, M${db.songs.length}, P${db.players.length}`);
@@ -583,7 +600,7 @@ const renderChart = (type) => {
         switchView('albumDetail');
     };
 
-    const openDiscographyDetail = (type) => { if (!activeArtist) { console.error("Nenhum artista ativo."); handleBack(); return; } const data = (type==='albums')?(activeArtist.albums||[]).sort((a,b)=>new Date(b.releaseDate)-new Date(a.releaseDate)):(activeArtist.singles||[]).sort((a,b)=>new Date(b.releaseDate)-new Date(a.releaseDate)); const title = (type==='albums')?`Álbuns de ${activeArtist.name}`:`Singles & EPs de ${activeArtist.name}`; document.getElementById('discographyTypeTitle').textContent = title; const grid = document.getElementById('discographyGrid'); grid.innerHTML = data.map(item => `<div class="scroll-item" data-album-id="${item.id}"><img src="${item.imageUrl}" alt="${item.title}"><p>${item.title}</p><span>${new Date(item.releaseDate).getFullYear()}</span></div>`).join('') || '<p class="empty-state">Nenhum lançamento.</p>'; switchView('discographyDetail'); };
+    const openDiscographyDetail = (type) => { if (!activeArtist) { console.error("Nenhum artista ativo."); handleBack(); return; } const data = (type==='albums')?(activeArtist.albums || []).sort((a,b)=>new Date(b.releaseDate)-new Date(a.releaseDate)):(activeArtist.singles||[]).sort((a,b)=>new Date(b.releaseDate)-new Date(a.releaseDate)); const title = (type==='albums')?`Álbuns de ${activeArtist.name}`:`Singles & EPs de ${activeArtist.name}`; document.getElementById('discographyTypeTitle').textContent = title; const grid = document.getElementById('discographyGrid'); grid.innerHTML = data.map(item => `<div class="scroll-item" data-album-id="${item.id}"><img src="${item.imageUrl}" alt="${item.title}"><p>${item.title}</p><span>${new Date(item.releaseDate).getFullYear()}</span></div>`).join('') || '<p class="empty-state">Nenhum lançamento.</p>'; switchView('discographyDetail'); };
     const handleSearch = () => { const query = searchInput.value.toLowerCase().trim(); if (!query) { switchTab(null, 'homeSection'); return; } const resultsContainer = document.getElementById('searchResults'); const noResultsEl = document.getElementById('noResults'); const filteredArtists = db.artists.filter(a => a.name.toLowerCase().includes(query)); const filteredAlbums = [...db.albums, ...db.singles].filter(a => a.title.toLowerCase().includes(query)); let html = ''; let count = 0; if (filteredArtists.length > 0) { html += '<h3 class="section-title">Artistas</h3>'; html += filteredArtists.map(a => { count++; return `<div class="artist-card" data-artist-name="${a.name}"><img src="${a.img}" alt="${a.name}" class="artist-card-img"><p class="artist-card-name">${a.name}</p><span class="artist-card-type">Artista</span></div>`; }).join(''); } if (filteredAlbums.length > 0) { html += '<h3 class="section-title">Álbuns & Singles</h3>'; html += filteredAlbums.map(al => { count++; return `<div class="artist-card" data-album-id="${al.id}"><img src="${al.imageUrl}" alt="${al.title}" class="artist-card-img"><p class="artist-card-name">${al.title}</p><span class="artist-card-type">${al.artist}</span></div>`; }).join(''); } resultsContainer.innerHTML = html; if (count > 0) { noResultsEl.classList.add('hidden'); resultsContainer.classList.remove('hidden'); } else { noResultsEl.classList.remove('hidden'); resultsContainer.classList.add('hidden'); } switchTab(null, 'searchSection'); };
     
     const setupCountdown = (timerId, chartType) => { const timerElement = document.getElementById(timerId); if (!timerElement) return; const calculateTargetDate = () => { const now = new Date(); const target = new Date(now); let daysToMonday = (1 + 7 - now.getDay()) % 7; if (daysToMonday === 0 && now.getHours() >= 0) { daysToMonday = 7; } target.setDate(now.getDate() + daysToMonday); target.setHours(0, 0, 0, 0); return target; }; let targetDate = calculateTargetDate(); const updateTimerDisplay = (distance) => { const days = Math.floor(distance / 864e5); const hours = Math.floor((distance % 864e5) / 36e5); const minutes = Math.floor((distance % 36e5) / 6e4); const seconds = Math.floor((distance % 6e4) / 1e3); const f = (n) => (n < 10 ? '0' + n : n); timerElement.textContent = distance < 0 ? `00d 00h 00m 00s` : `${f(days)}d ${f(hours)}h ${f(minutes)}m ${f(seconds)}s`; }; const updateTimer = () => { const now = new Date().getTime(); const distance = targetDate.getTime() - now; if (distance < 0) { console.log(`Timer ${timerId} finished. Saving ${chartType} chart.`); saveChartDataToLocalStorage(chartType); targetDate = calculateTargetDate(); if (chartType === 'music') renderChart('music'); else if (chartType === 'album') renderChart('album'); else if (chartType === 'rpg') renderRPGChart(); updateTimerDisplay(targetDate.getTime() - new Date().getTime()); return; } updateTimerDisplay(distance); }; updateTimer(); setInterval(updateTimer, 1000); };
@@ -613,17 +630,24 @@ const renderChart = (type) => {
 
     function initializeStudio() {
         console.log("Running initializeStudio..."); 
-        if (!playerSelect) { console.error("initializeStudio failed: playerSelect element not found."); return; }
+        // ==================================
+        // ========== JS ALTERADO =========
+        // ==================================
+        
+        // Não precisamos mais preencher o select, então a checagem por 'playerSelect' foi removida
+        // A lógica de preenchimento do select foi removida.
 
-        if (db.players && db.players.length > 0) {
-            playerSelect.innerHTML = '<option value="">Selecione...</option>' + db.players.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-        } else {
-            playerSelect.innerHTML = '<option value="">Nenhum jogador encontrado</option>';
-            console.warn("Nenhum jogador carregado para o estúdio.");
-        }
-
-        loginButton.addEventListener('click', () => loginPlayer(playerSelect.value));
+        // Altera o listener do botão de login
+        loginButton.addEventListener('click', () => {
+            const username = document.getElementById('usernameInput').value;
+            const password = document.getElementById('passwordInput').value;
+            loginPlayer(username, password);
+        });
+        
         logoutButton.addEventListener('click', logoutPlayer);
+        // ==================================
+        // ======== FIM DA ALTERAÇÃO ========
+        // ==================================
 
         studioTabs.forEach(tab => {
             tab.addEventListener('click', (e) => {
@@ -672,8 +696,52 @@ const renderChart = (type) => {
     }
 
     function populateArtistSelector(playerId) { const p=db.players.find(pl=>pl.id===playerId); if(!p)return; const ids=p.artists||[]; const opts=ids.map(id=>{const a=db.artists.find(ar=>ar.id===id); return a?`<option value="${a.id}">${a.name}</option>`:'';}).join(''); singleArtistSelect.innerHTML=`<option value="">Selecione...</option>${opts}`; albumArtistSelect.innerHTML=`<option value="">Selecione...</option>${opts}`; }
-    function loginPlayer(playerId) { if(!playerId){alert("Selecione.");return;} currentPlayer=db.players.find(p=>p.id===playerId); if(currentPlayer){document.getElementById('playerName').textContent=currentPlayer.name; loginPrompt.classList.add('hidden'); loggedInInfo.classList.remove('hidden'); studioLaunchWrapper.classList.remove('hidden'); populateArtistSelector(currentPlayer.id);} }
-    function logoutPlayer() { currentPlayer=null; document.getElementById('playerName').textContent=''; loginPrompt.classList.remove('hidden'); loggedInInfo.classList.add('hidden'); studioLaunchWrapper.classList.add('hidden'); }
+    
+    // ==================================
+    // ========== JS ALTERADO =========
+    // ==================================
+    // Função reescrita para aceitar usuário/senha em vez de playerId
+    function loginPlayer(username, password) {
+        if (!username || !password) {
+            alert("Por favor, insira nome de usuário e senha.");
+            return;
+        }
+
+        // Procura o jogador pelo nome de usuário (ignorando maiúsculas/minúsculas)
+        const foundPlayer = db.players.find(p => p.name.toLowerCase() === username.toLowerCase());
+
+        // Verifica se o jogador foi encontrado E se a senha bate
+        if (foundPlayer && foundPlayer.password === password) {
+            // Sucesso
+            currentPlayer = foundPlayer;
+            document.getElementById('playerName').textContent = currentPlayer.name;
+            loginPrompt.classList.add('hidden');
+            loggedInInfo.classList.remove('hidden');
+            studioLaunchWrapper.classList.remove('hidden');
+            populateArtistSelector(currentPlayer.id);
+        } else {
+            // Falha
+            alert("Usuário ou senha inválidos.");
+            // Limpa o campo de senha por segurança
+            document.getElementById('passwordInput').value = '';
+        }
+    }
+    // ==================================
+    // ======== FIM DA ALTERAÇÃO ========
+    // ==================================
+
+    function logoutPlayer() { 
+        currentPlayer=null; 
+        document.getElementById('playerName').textContent=''; 
+        loginPrompt.classList.remove('hidden'); 
+        loggedInInfo.classList.add('hidden'); 
+        studioLaunchWrapper.classList.add('hidden'); 
+        
+        // Limpa os campos de login ao sair
+        document.getElementById('usernameInput').value = '';
+        document.getElementById('passwordInput').value = '';
+    }
+
     function populateArtistSelectForFeat(targetSelectElement) { let currentMainId=null; let selectEl=targetSelectElement; if(document.getElementById('newSingleForm').classList.contains('active')){currentMainId=singleArtistSelect.value; selectEl=featArtistSelect;} else if(document.getElementById('newAlbumForm').classList.contains('active')){currentMainId=albumArtistSelect.value; selectEl=inlineFeatArtistSelect;} else {selectEl=featArtistSelect;} if(!selectEl){console.error("Select feats não encontrado!"); return;} selectEl.innerHTML = db.artists.filter(a=>a.id!==currentMainId).sort((a,b)=>a.name.localeCompare(b.name)).map(a=>`<option value="${a.id}">${a.name}</option>`).join(''); if(selectEl.innerHTML===''){selectEl.innerHTML='<option value="">Nenhum outro</option>';} }
     function openFeatModal(buttonElement) { const targetId=buttonElement.dataset.target; currentFeatTarget=document.getElementById(targetId); if(!currentFeatTarget){console.error("Alvo feat não encontrado:", targetId); return;} populateArtistSelectForFeat(featArtistSelect); featModal.classList.remove('hidden'); }
     function closeFeatModal() { featModal.classList.add('hidden'); currentFeatTarget=null; }
@@ -904,7 +972,7 @@ const renderChart = (type) => {
     }
 
 
-    // --- 5. LÓGICA DO PLAYER DE MÚSICA ---
+    // --- 5. LÓGICA DO PLAYER DE MÚSICA (MODO VISUAL) ---
     
     function openPlayer(songId, clickedElement) {
         const song = db.songs.find(s => s.id === songId);
