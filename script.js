@@ -1,365 +1,406 @@
-// ==========================================================
-// ============= CONFIGURAÇÃO SPOTIFY (PKCE) ================
-// ==========================================================
-const CLIENT_ID = "4c1a5e5e8deb42c19d9b1b948717ea28"; // SEU CLIENT ID
-const REDIRECT_URI = "https://davidwillianw.github.io/testes-spotify/"; 
-const SCOPES = [
-    "streaming", "user-read-email", "user-read-private",
-    "user-read-playback-state", "user-modify-playback-state", "user-read-currently-playing"
-];
+document.addEventListener("DOMContentLoaded", async () => {
+  // --- VARIÁVEIS GLOBAIS ---
+  let db = { artists: [], albums: [], singles: [], songs: [], players: [] };
+  // ... (suas variáveis globais existentes) ...
 
-let accessToken = null;
-let spotifyPlayer = null;
-let spotifyDeviceId = null;
-let currentTrackAlbumId = null; 
-let currentContextUri = null;   
+  // --- VARIÁVEIS DO PLAYER ---
+  let audioElement = null;
+  let musicPlayerView = null;
+  let playerCloseBtn = null;
+  let playerAlbumTitle = null;
+  let playerCoverArt = null;
+  let playerSongTitle = null;
+  let playerArtistName = null;
+  let playerSeekBar = null;
+  let playerCurrentTime = null;
+  let playerTotalTime = null;
+  let playerShuffleBtn = null;
+  let playerPrevBtn = null;
+  let playerPlayPauseBtn = null;
+  let playerNextBtn = null;
+  let playerRepeatBtn = null;
 
-// Esta função é chamada pelo script do Spotify quando ele carrega.
-window.onSpotifyWebPlaybackSDKReady = () => {
-    console.log("Spotify SDK está pronto para ser usado.");
-    if (accessToken) {
-        initSpotifyPlayer(accessToken);
-    }
-};
+  let currentSong = null;
+  let currentQueue = [];
+  let currentQueueIndex = 0;
+  let isPlaying = false;
+  let isShuffle = false;
+  let repeatMode = "none"; // 'none', 'all', 'one'
 
-// O aplicativo começa a carregar imediatamente. A autenticação roda em paralelo.
-document.addEventListener('DOMContentLoaded', () => {
-    startApp(); 
-    handleAuthentication(); 
-});
+  // --- ELEMENTOS DO DOM ---
+  // ... (sua lista de elementos DOM existente) ...
 
-// ==========================================================
-// ============= LÓGICA DE AUTENTICAÇÃO (PKCE) ==============
-// ==========================================================
-async function handleAuthentication() {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
+  const AIRTABLE_BASE_ID = "appG5NOoblUmtSMVI";
+  // ... (suas constantes existentes) ...
 
-    if (code) {
-        const token = await getAccessToken(code);
-        if (token) {
-            accessToken = token;
-            if (window.Spotify && !spotifyPlayer) {
-                initSpotifyPlayer(accessToken);
-            }
-        }
-    } else {
-        accessToken = localStorage.getItem('spotify_access_token');
-        if (accessToken && window.Spotify && !spotifyPlayer) {
-            initSpotifyPlayer(accessToken);
-        }
-    }
-}
-
-function promptLogin() {
-    document.getElementById('loginOverlay').style.display = 'flex';
-    document.getElementById('loginBtn').addEventListener('click', redirectToAuthCodeFlow, { once: true });
-}
-
-async function redirectToAuthCodeFlow() {
-    const verifier = generateCodeVerifier(128);
-    const challenge = await generateCodeChallenge(verifier);
-    localStorage.setItem("spotify_verifier", verifier);
-    const params = new URLSearchParams({
-        client_id: CLIENT_ID, response_type: "code", redirect_uri: REDIRECT_URI,
-        scope: SCOPES.join(' '), code_challenge_method: "S256", code_challenge: challenge,
-    });
-    document.location = `https://accounts.spotify.com/authorize?${params.toString()}`;
-}
-
-async function getAccessToken(code) {
-    const verifier = localStorage.getItem("spotify_verifier");
-    if (!verifier) { console.error("Code Verifier não encontrado."); return null; }
-    const params = new URLSearchParams({
-        client_id: CLIENT_ID, grant_type: "authorization_code", code: code,
-        redirect_uri: REDIRECT_URI, code_verifier: verifier,
-    });
+  // --- FUNÇÃO PARA INICIALIZAR ELEMENTOS DO DOM ---
+  function initializeDOMElements() {
+    console.log("Initializing DOM elements...");
     try {
-        const result = await fetch("https://accounts.spotify.com/api/token", {
-            method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: params
-        });
-        const data = await result.json();
-        if (!result.ok) throw new Error(data.error_description || "Erro na troca de token.");
-        const { access_token, refresh_token } = data;
-        if (access_token) {
-            localStorage.setItem("spotify_access_token", access_token);
-            localStorage.setItem("spotify_refresh_token", refresh_token);
-            window.history.pushState({}, document.title, window.location.pathname);
-            return access_token;
-        }
-    } catch (error) { console.error("Erro na função getAccessToken:", error); return null; }
-}
+      // ... (sua inicialização DOM existente) ...
 
-function generateCodeVerifier(length) { let text = ''; let possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'; for (let i = 0; i < length; i++) { text += possible.charAt(Math.floor(Math.random() * possible.length)); } return text; }
-async function generateCodeChallenge(codeVerifier) { const data = new TextEncoder().encode(codeVerifier); const digest = await window.crypto.subtle.digest('SHA-256', data); return btoa(String.fromCharCode.apply(null, [...new Uint8Array(digest)])).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+      // --- INICIALIZAÇÃO DO PLAYER ---
+      audioElement = document.getElementById("audioElement");
+      musicPlayerView = document.getElementById("musicPlayer");
+      playerCloseBtn = document.querySelector(".player-close-btn");
+      playerAlbumTitle = document.getElementById("playerAlbumTitle");
+      playerCoverArt = document.getElementById("playerCoverArt");
+      playerSongTitle = document.getElementById("playerSongTitle");
+      playerArtistName = document.getElementById("playerArtistName");
+      playerSeekBar = document.getElementById("playerSeekBar");
+      playerCurrentTime = document.getElementById("playerCurrentTime");
+      playerTotalTime = document.getElementById("playerTotalTime");
+      playerShuffleBtn = document.getElementById("playerShuffleBtn");
+      playerPrevBtn = document.getElementById("playerPrevBtn");
+      playerPlayPauseBtn = document.getElementById("playerPlayPauseBtn");
+      playerNextBtn = document.getElementById("playerNextBtn");
+      playerRepeatBtn = document.getElementById("playerRepeatBtn");
 
-// ==========================================================
-// =========== FUNÇÕES DO PLAYER SPOTIFY ====================
-// ==========================================================
-function initSpotifyPlayer(token) {
-    if (spotifyPlayer) return;
-    console.log("Inicializando o Spotify Player...");
-    spotifyPlayer = new Spotify.Player({ name: "Spotify RPG Player", getOAuthToken: cb => cb(token), volume: 0.5 });
-    spotifyPlayer.addListener("ready", ({ device_id }) => {
-        console.log("Dispositivo conectado:", device_id);
-        spotifyDeviceId = device_id;
-        document.getElementById('deviceName').textContent = "este navegador";
-    });
-    spotifyPlayer.addListener("not_ready", ({ device_id }) => console.warn("Dispositivo desconectado", device_id));
-    spotifyPlayer.addListener('authentication_error', ({ message }) => { console.error('Authentication failed:', message); localStorage.removeItem('spotify_access_token'); accessToken = null; });
-    spotifyPlayer.addListener("player_state_changed", state => {
-        if (!state) { document.getElementById('spotifyPlayerBar').classList.remove('active'); document.body.style.setProperty('--player-height', '0px'); clearInterval(progressInterval); return; }
-        updatePlayerUI(state);
-        document.getElementById('spotifyPlayerBar').classList.add('active');
-        document.body.style.setProperty('--player-height', '90px');
-    });
-    spotifyPlayer.connect();
-    setupPlayerEventListeners();
-}
+      const playerElements = [
+        audioElement,
+        musicPlayerView,
+        playerCloseBtn,
+        playerPlayPauseBtn,
+        playerSeekBar,
+        playerNextBtn,
+        playerPrevBtn,
+      ];
+      if (playerElements.some((el) => !el)) {
+        console.error(
+          "ERRO CRÍTICO: Elementos essenciais do PLAYER não foram encontrados!"
+        );
+        return false;
+      }
+      // --- FIM DA INICIALIZAÇÃO DO PLAYER ---
 
-async function playContext(contextUri) {
-    if (!spotifyDeviceId) { alert("Nenhum dispositivo Spotify ativo encontrado. Abra o Spotify e tente novamente."); return; }
-    if (!contextUri) { alert("Este álbum/playlist não tem um link do Spotify cadastrado."); return; }
-    await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${spotifyDeviceId}`, {
-        method: 'PUT', body: JSON.stringify({ context_uri: contextUri }),
-        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    });
-}
+      // ... (seu código existente) ...
+      console.log("DOM elements initialized.");
+      return true;
+    } catch (error) {
+      // ... (seu catch existente) ...
+      return false;
+    }
+  }
 
-async function playTrackByUri(trackUri, albumId) {
-    if (!spotifyDeviceId) { alert("Nenhum dispositivo Spotify ativo encontrado. Abra o Spotify e tente novamente."); return; }
-    currentTrackAlbumId = albumId;
-    await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${spotifyDeviceId}`, {
-        method: 'PUT', body: JSON.stringify({ uris: [trackUri] }),
-        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-    });
-}
+  // --- 1. CARREGAMENTO DE DADOS ---
+  // ... (todo o seu código de carregamento de dados existente) ...
+  // ... (fetchAllAirtablePages, loadAllData, initializeData, etc) ...
 
-function updatePlayerUI(state) {
-    const track = state.track_window.current_track;
-    if (!track) return;
-    document.getElementById('playerCover').src = track.album.images[0].url;
-    document.getElementById('playerTitle').textContent = track.name;
-    document.getElementById('playerArtist').textContent = track.artists.map(a => a.name).join(', ');
-    document.getElementById('playPauseBtn').querySelector('i').className = state.paused ? 'fas fa-play' : 'fas fa-pause';
-    clearInterval(progressInterval);
-    const updateProgress = () => {
-        const position = state.paused ? state.position : state.position + (Date.now() - state.timestamp);
-        const progressPercent = (position / state.duration) * 100;
-        document.getElementById('progressBar').style.width = `${progressPercent}%`;
-        document.getElementById('currentTime').textContent = formatTime(position);
-    };
-    document.getElementById('totalTime').textContent = formatTime(state.duration);
-    updateProgress();
-    if (!state.paused) { progressInterval = setInterval(updateProgress, 500); }
-}
+  // --- 2. NAVEGAÇÃO E UI ---
+  // ... (suas funções switchView, switchTab, handleBack, etc.) ...
 
-function setupPlayerEventListeners() {
-    document.getElementById('playPauseBtn').addEventListener('click', () => spotifyPlayer.togglePlay());
-    document.getElementById('nextBtn').addEventListener('click', () => spotifyPlayer.nextTrack());
-    document.getElementById('prevBtn').addEventListener('click', () => spotifyPlayer.previousTrack());
-    document.getElementById('playerTitle').addEventListener('click', () => { if(currentTrackAlbumId) openAlbumDetail(currentTrackAlbumId); });
-    document.getElementById('progressContainer').addEventListener('click', function(e) {
-        const bounds = this.getBoundingClientRect();
-        spotifyPlayer.getCurrentState().then(state => {
-            if (state) spotifyPlayer.seek(Math.round(((e.clientX - bounds.left) / bounds.width) * state.duration));
-        });
-    });
-}
+  // ... (sua função renderChart) ...
 
-function formatTime(ms) { const s = Math.floor(ms / 1000); return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`; }
+  // ... (sua função openArtistDetail) ...
 
-// ==========================================================
-// ============= LÓGICA PRINCIPAL DO APLICATIVO =============
-// ==========================================================
-async function startApp() {
-    // --- VARIÁVEIS DO APP ---
-    const AIRTABLE_BASE_ID = 'appG5NOoblUmtSMVI';
-    const AIRTABLE_API_KEY = 'pat5T28kjmJ4t6TQG.69bf34509e687fff6a3f76bd52e64518d6c92be8b1ee0a53bcc9f50fedcb5c70';
-    let db = { artists: [], albums: [], songs: [] };
-    const allViews = document.querySelectorAll('.page-view');
-    const searchInput = document.getElementById('searchInput');
-    const allNavs = [...document.querySelectorAll('.nav-tab'), ...document.querySelectorAll('.bottom-nav-item')];
-    let activeArtist = null;
-    let viewHistory = ['mainView'];
+  // ... (sua função openAlbumDetail) ...
 
-    // --- FUNÇÕES DE DADOS (AIRTABLE) ---
-    async function loadAllData() {
-        const fetchOptions = { headers: { 'Authorization': `Bearer ${AIRTABLE_API_KEY}` } };
-        const tables = {
-            artists: `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Artists?filterByFormula=%7BArtista%20Principal%7D%3D1`,
-            albums: `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Álbuns`,
-            musicas: `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Músicas`,
-            singles: `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Singles%20e%20EPs`
-        };
-        try {
-            const [artistsRes, albumsRes, musicasRes, singlesRes] = await Promise.all(Object.values(tables).map(url => fetch(url, fetchOptions)));
-            if (!artistsRes.ok || !albumsRes.ok || !musicasRes.ok || !singlesRes.ok) throw new Error('Falha ao carregar dados do Airtable.');
-            
-            const [artistsData, albumsData, musicasData, singlesData] = await Promise.all([artistsRes.json(), albumsRes.json(), musicasRes.json(), singlesRes.json()]);
+  // ... (suas funções de discografia, pesquisa, countdown) ...
 
-            const musicasMap = new Map();
-            musicasData.records.forEach(record => {
-                musicasMap.set(record.id, {
-                    id: record.id,
-                    title: record.fields['Nome da Faixa'],
-                    trackNumber: record.fields['Nº da Faixa'] || 0,
-                    spotifyUri: record.fields['Spotify URI'] || null
-                });
-            });
+  // --- 3. SISTEMA DE RPG ---
+  // ... (seu código RPG existente) ...
 
-            const artistsMapById = new Map();
-            artistsData.records.forEach(record => artistsMapById.set(record.id, record.fields.Name));
-            
-            const formatReleases = (records) => records.map(record => {
-                const fields = record.fields;
-                const trackIds = fields['Músicas'] || [];
-                const tracks = trackIds.map(trackId => musicasMap.get(trackId)).filter(Boolean);
-                const artistId = (fields['Artista'] && fields['Artista'][0]) || null;
-                return {
-                    id: record.id,
-                    title: fields['Nome do Álbum'] || fields['Nome do Single/EP'],
-                    artist: artistId ? artistsMapById.get(artistId) : "Artista Desconhecido",
-                    imageUrl: (fields['Capa do Álbum'] && fields['Capa do Álbum'][0]?.url) || (fields['Capa'] && fields['Capa'][0]?.url) || 'https://i.imgur.com/AD3MbBi.png',
-                    releaseDate: fields['Data de Lançamento'] || '2024-01-01',
-                    tracks: tracks,
-                    spotifyUri: fields['Spotify URI'] || null
-                };
-            });
-            
-            return {
-                artists: artistsData.records.map(r => ({ id: r.id, name: r.fields.Name, imageUrl: (r.fields['URL da Imagem'] && r.fields['URL da Imagem'][0]?.url) || 'https://i.imgur.com/AD3MbBi.png' })),
-                albums: formatReleases(albumsData.records),
-                singles: formatReleases(singlesData.records)
-            };
-        } catch (error) {
-            console.error("FALHA CRÍTICA ao carregar dados do Airtable:", error);
-            document.body.innerHTML = `<div style="color: white; text-align: center; padding: 50px;"><h1>Erro ao carregar dados</h1><p>Não foi possível conectar ao banco de dados. Verifique o console.</p></div>`;
-            return null;
-        }
+  // --- 4. SISTEMA DO ESTÚDIO ---
+  // ... (seu código do Estúdio existente) ...
+
+  // --- 5. LÓGICA DO PLAYER DE MÚSICA ---
+
+  function openPlayer(songId, clickedElement) {
+    const song = db.songs.find((s) => s.id === songId);
+    if (!song) {
+      console.error(`Música com ID ${songId} não encontrada.`);
+      return;
     }
 
-    // --- FUNÇÕES DE UI E NAVEGAÇÃO ---
-    const initializeData = (apiData) => {
-        const artistsMap = new Map();
-        apiData.artists.forEach(artist => artistsMap.set(artist.name, { ...artist, img: artist.imageUrl, albums: [], singles: [] }));
+    // Tenta construir a fila de reprodução a partir do contexto
+    const parentList = clickedElement.closest(
+      ".popular-songs-list, .tracklist-container, .chart-list"
+    );
+    if (parentList) {
+      const songElements = parentList.querySelectorAll("[data-song-id]");
+      currentQueue = Array.from(songElements)
+        .map((el) => db.songs.find((s) => s.id === el.dataset.songId))
+        .filter(Boolean); // Filtra músicas não encontradas
+    } else {
+      // Fila de fallback: apenas a música clicada
+      currentQueue = [song];
+    }
 
-        [...apiData.albums, ...apiData.singles].forEach(release => {
-            release.tracks.forEach(track => {
-                const songExists = db.songs.some(s => s.id === track.id);
-                if (!songExists) {
-                    db.songs.push({ ...track, albumId: release.id, artist: release.artist, cover: release.imageUrl });
-                }
-            });
+    currentQueueIndex = currentQueue.findIndex((s) => s.id === songId);
+    if (currentQueueIndex === -1) {
+      currentQueue = [song];
+      currentQueueIndex = 0;
+    }
 
-            if (artistsMap.has(release.artist)) {
-                const artistEntry = artistsMap.get(release.artist);
-                const isAlbum = apiData.albums.some(a => a.id === release.id);
-                const list = isAlbum ? 'albums' : 'singles';
-                artistEntry[list].push(release);
-            }
-        });
+    currentSong = song;
+    loadSong(song);
+    musicPlayerView.classList.remove("hidden");
+    document.body.classList.add("player-open");
+    playAudio();
+  }
 
-        db.artists = Array.from(artistsMap.values());
-        db.albums = [...apiData.albums, ...apiData.singles];
-    };
+  function closePlayer() {
+    musicPlayerView.classList.add("hidden");
+    document.body.classList.remove("player-open");
+    // Decidimos não parar a música ao fechar, mas você pode adicionar pauseAudio() aqui se preferir
+    // pauseAudio();
+  }
 
-    const switchView = (viewId) => {
-        allViews.forEach(v => v.classList.toggle('hidden', v.id !== viewId));
-        if (viewId !== viewHistory[viewHistory.length - 1]) { viewHistory.push(viewId); }
-        window.scrollTo(0, 0);
-    };
+  function loadSong(song) {
+    currentSong = song;
 
-    const renderArtistsGrid = (containerId, artists) => {
-        const container = document.getElementById(containerId);
-        if (container) container.innerHTML = artists.map(artist => `<div class="artist-card" data-artist-name="${artist.name}"><img src="${artist.imageUrl}" alt="${artist.name}"><h3>${artist.name}</h3></div>`).join('');
-    };
+    // Atualiza a UI do Player
+    playerSongTitle.textContent = song.title;
+    playerArtistName.textContent = formatArtistString(
+      song.artistIds,
+      song.collabType
+    );
 
-    const openArtistDetail = (artistName) => {
-        const artist = db.artists.find(a => a.name === artistName);
-        if (!artist) return;
-        activeArtist = artist;
-        if (artist.albums.length > 0) {
-            currentContextUri = [...artist.albums].sort((a, b) => new Date(b.releaseDate) - new Date(a.releaseDate))[0].spotifyUri;
-        } else { currentContextUri = null; }
-        
-        document.getElementById('detailBg').style.backgroundImage = `url(${artist.img})`;
-        document.getElementById('detailName').textContent = artist.name;
-        
-        const renderHorizontalList = (containerId, items) => { 
-            document.getElementById(containerId).innerHTML = items.map(item => 
-                `<div class="album-card" data-album-id="${item.id}"><img src="${item.imageUrl}" alt="${item.title}"><div class="album-title">${item.title}</div><div class="album-year">${new Date(item.releaseDate).getFullYear()}</div></div>`
-            ).join(''); 
-        };
-        renderHorizontalList('albumsList', artist.albums);
-        renderHorizontalList('singlesList', artist.singles);
-        switchView('artistDetail');
-    };
+    const parentRelease = [...db.albums, ...db.singles].find(
+      (r) => r.id === song.albumId
+    );
+    if (parentRelease) {
+      playerCoverArt.src = parentRelease.imageUrl;
+      playerAlbumTitle.textContent = parentRelease.title;
+    } else {
+      playerCoverArt.src = "https://i.imgur.com/AD3MbBi.png"; // Fallback
+      playerAlbumTitle.textContent = "Single";
+    }
 
-    const openAlbumDetail = (albumId) => {
-        const album = db.albums.find(a => a.id === albumId);
-        if (!album) return;
-        currentContextUri = album.spotifyUri;
-        currentTrackAlbumId = albumId; // Define o ID do álbum para navegação no player
+    // *** IMPORTANTE: SIMULAÇÃO DE ÁUDIO ***
+    // No mundo real, você usaria song.audioUrl ou algo do seu DB
+    audioElement.src =
+      "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3";
+    audioElement.load();
 
-        document.getElementById('albumDetailBg').style.backgroundImage = `url(${album.imageUrl})`;
-        document.getElementById('albumDetailCover').src = album.imageUrl;
-        document.getElementById('albumDetailTitle').textContent = album.title;
-        document.getElementById('albumDetailInfo').innerHTML = `<strong class="clickable-artist" data-artist-name="${album.artist}">${album.artist}</strong> • ${new Date(album.releaseDate).getFullYear()}`;
-        
-        const sortedTracks = [...album.tracks].sort((a, b) => a.trackNumber - b.trackNumber);
-        document.getElementById('albumTracklist').innerHTML = sortedTracks.map(track =>
-            `<div class="track-row" data-album-id="${album.id}" data-track-id="${track.id}">
-                <div class="track-number">${track.trackNumber}</div>
-                <div class="track-title-artist">
-                    <div class="track-title">${track.title}</div>
-                    <div class="track-artist">${album.artist}</div>
-                </div>
-            </div>`
-        ).join('');
-        switchView('albumDetail');
-    };
-    
-    // --- EVENTOS DE CLIQUE ---
-    document.body.addEventListener('click', async (e) => {
-        const target = e.target;
-        const playElement = target.closest('.main-play-btn, .track-row');
+    playerSeekBar.value = 0; // Reseta a barra
+    playerCurrentTime.textContent = "0:00";
+    playerTotalTime.textContent = "0:00";
+  }
 
-        if (playElement) {
-            if (!accessToken) {
-                promptLogin();
-                return;
-            }
-            if (playElement.matches('.main-play-btn')) {
-                if (currentContextUri) await playContext(currentContextUri);
-            } else if (playElement.matches('.track-row')) {
-                const trackId = playElement.dataset.trackId;
-                const song = db.songs.find(s => s.id === trackId);
-                if (song && song.spotifyUri) {
-                    await playTrackByUri(song.spotifyUri, song.albumId);
-                } else {
-                    alert('Esta música não tem um link do Spotify cadastrado.');
-                }
-            }
-            return;
-        }
+  function playAudio() {
+    audioElement
+      .play()
+      .then(() => {
+        isPlaying = true;
+        playerPlayPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+      })
+      .catch((error) => {
+        console.error("Erro ao tocar áudio:", error);
+        isPlaying = false;
+      });
+  }
 
-        const albumCard = target.closest('[data-album-id]');
-        if (albumCard) { openAlbumDetail(albumCard.dataset.albumId); return; }
+  function pauseAudio() {
+    audioElement.pause();
+    isPlaying = false;
+    playerPlayPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+  }
 
-        const artistCard = target.closest('.artist-card, .clickable-artist');
-        if (artistCard) { openArtistDetail(artistCard.dataset.artistName); return; }
+  function togglePlay() {
+    if (isPlaying) {
+      pauseAudio();
+    } else {
+      playAudio();
+    }
+  }
 
-        const backBtn = target.closest('.back-btn');
-        if (backBtn) { if (viewHistory.length > 1) { viewHistory.pop(); switchView(viewHistory[viewHistory.length - 1]); } return; }
+  function playNext() {
+    if (isShuffle) {
+      currentQueueIndex = Math.floor(Math.random() * currentQueue.length);
+    } else {
+      currentQueueIndex++;
+    }
+
+    if (currentQueueIndex >= currentQueue.length) {
+      if (repeatMode === "all") {
+        currentQueueIndex = 0; // Volta ao início
+      } else {
+        currentQueueIndex = currentQueue.length - 1; // Para no final
+        pauseAudio(); // Para de tocar
+        return;
+      }
+    }
+
+    loadSong(currentQueue[currentQueueIndex]);
+    playAudio();
+  }
+
+  function playPrevious() {
+    // Se a música estiver tocando por mais de 3 segundos, reinicie
+    if (audioElement.currentTime > 3) {
+      audioElement.currentTime = 0;
+      return;
+    }
+
+    if (isShuffle) {
+      currentQueueIndex = Math.floor(Math.random() * currentQueue.length);
+    } else {
+      currentQueueIndex--;
+    }
+
+    if (currentQueueIndex < 0) {
+      if (repeatMode === "all") {
+        currentQueueIndex = currentQueue.length - 1; // Vai para o final
+      } else {
+        currentQueueIndex = 0; // Para no início
+      }
+    }
+
+    loadSong(currentQueue[currentQueueIndex]);
+    playAudio();
+  }
+
+  function toggleShuffle() {
+    isShuffle = !isShuffle;
+    playerShuffleBtn.classList.toggle("active", isShuffle);
+    console.log("Shuffle:", isShuffle);
+  }
+
+  function toggleRepeat() {
+    const icon = playerRepeatBtn.querySelector("i");
+    if (repeatMode === "none") {
+      repeatMode = "all";
+      playerRepeatBtn.classList.add("active");
+      icon.className = "fas fa-repeat";
+    } else if (repeatMode === "all") {
+      repeatMode = "one";
+      playerRepeatBtn.classList.add("active");
+      icon.className = "fas fa-repeat-1"; // FontAwesome 6+
+    } else {
+      // repeatMode === 'one'
+      repeatMode = "none";
+      playerRepeatBtn.classList.remove("active");
+      icon.className = "fas fa-repeat";
+    }
+    console.log("Repeat Mode:", repeatMode);
+  }
+
+  function formatTime(seconds) {
+    const minutes = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${minutes}:${secs < 10 ? "0" : ""}${secs}`;
+  }
+
+  function updateSeekBar() {
+    if (!isNaN(audioElement.duration)) {
+      playerSeekBar.value = audioElement.currentTime;
+      playerCurrentTime.textContent = formatTime(audioElement.currentTime);
+    }
+  }
+
+  function initializePlayerListeners() {
+    playerCloseBtn.addEventListener("click", closePlayer);
+    playerPlayPauseBtn.addEventListener("click", togglePlay);
+    playerNextBtn.addEventListener("click", playNext);
+    playerPrevBtn.addEventListener("click", playPrevious);
+    playerShuffleBtn.addEventListener("click", toggleShuffle);
+    playerRepeatBtn.addEventListener("click", toggleRepeat);
+
+    audioElement.addEventListener("loadedmetadata", () => {
+      playerSeekBar.max = audioElement.duration;
+      playerTotalTime.textContent = formatTime(audioElement.duration);
     });
 
-    // --- CARREGAMENTO INICIAL ---
-    console.log("Carregando dados do Airtable...");
-    const apiData = await loadAllData();
-    if (!apiData) return;
-    
-    console.log("Inicializando a interface...");
-    initializeData(apiData);
-    renderArtistsGrid('homeGrid', [...db.artists].sort(() => 0.5 - Math.random()).slice(0, 10));
-}
+    audioElement.addEventListener("timeupdate", updateSeekBar);
+
+    audioElement.addEventListener("ended", () => {
+      if (repeatMode === "one") {
+        audioElement.currentTime = 0;
+        playAudio();
+      } else {
+        playNext();
+      }
+    });
+
+    playerSeekBar.addEventListener("input", () => {
+      audioElement.currentTime = playerSeekBar.value;
+      playerCurrentTime.textContent = formatTime(playerSeekBar.value);
+    });
+  }
+
+  // --- 6. INICIALIZAÇÃO GERAL ---
+
+  function initializeBodyClickListener() {
+    document.body.addEventListener("click", (e) => {
+      const artistCard = e.target.closest(".artist-card[data-artist-name]");
+      const albumCard = e.target.closest("[data-album-id]");
+
+      // --- ATUALIZADO: Gatilho do Player ---
+      const songCard = e.target.closest(
+        ".song-row[data-song-id], .track-row[data-song-id], .chart-item[data-song-id]"
+      );
+
+      const artistLink = e.target.closest(".artist-link[data-artist-name]");
+      const discogLink = e.target.closest(".see-all-btn[data-type]");
+
+      if (discogLink) {
+        openDiscographyDetail(discogLink.dataset.type);
+        return;
+      }
+      if (albumCard) {
+        openAlbumDetail(albumCard.dataset.albumId);
+        return;
+      }
+      if (artistCard) {
+        openArtistDetail(artistCard.dataset.artistName);
+        return;
+      }
+      if (artistLink) {
+        openArtistDetail(artistLink.dataset.artistName);
+        return;
+      }
+
+      // --- ATUALIZADO: Ação do Player ---
+      if (songCard) {
+        // Verifica se a música está disponível (no caso de pré-lançamentos)
+        if (!songCard.classList.contains("unavailable")) {
+          console.log(
+            "Abrindo player para música ID:",
+            songCard.dataset.songId
+          );
+          openPlayer(songCard.dataset.songId, songCard);
+        } else {
+          console.log("Música indisponível.");
+        }
+        return;
+      }
+    });
+    searchInput.addEventListener("input", handleSearch);
+    searchInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        handleSearch();
+      }
+    });
+  }
+
+  async function main() {
+    console.log("Iniciando Aplicação...");
+    if (!initializeDOMElements()) return;
+
+    document.body.classList.add("loading");
+    const data = await loadAllData();
+
+    if (data && data.allArtists) {
+      if (!initializeData(data)) return;
+
+      try {
+        // ... (seu código de inicialização do main) ...
+
+        initializePlayerListeners(); // <-- ADICIONA OS LISTENERS DO PLAYER
+
+        // ... (o resto do seu código do main) ...
+
+        initializeBodyClickListener(); // <-- Modificada para incluir o player
+
+        // ... (o resto do seu código do main) ...
+      } catch (uiError) {
+        // ... (seu catch) ...
+      }
+    } else {
+      // ... (seu else) ...
+    }
+    document.body.classList.remove("loading");
+  }
+  main();
+}); // Fim DOMContentLoaded
