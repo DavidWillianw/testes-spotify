@@ -782,25 +782,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             clearInterval(albumCountdownInterval);
             albumCountdownInterval = null;
         }
-
-        // Pop only ONCE to remove the current view
         if (viewHistory.length > 0) {
             const poppedView = viewHistory.pop(); // Removes the current view ID from the stack
             console.log(`Popped current view (${poppedView}). History now: ${JSON.stringify(viewHistory)}`);
         } else {
              console.log("History was empty, cannot pop. Going to mainView.");
-             switchView('mainView'); // Fallback if history is somehow empty
+             switchView('mainView'); 
              return;
         }
-
-
-        // Determine the previous view ID by PEEKING at the new last element
         const previousViewId = viewHistory.length > 0 ? viewHistory[viewHistory.length - 1] : 'mainView';
         console.log(`Determined previous view ID (peek): ${previousViewId}.`);
 
-        // We DON'T pop the target view ID here.
-
-        switchView(previousViewId); // Switch to the view that is now the last in history
+        switchView(previousViewId); 
     };
 
     const renderArtistsGrid = (containerId, artists) => {
