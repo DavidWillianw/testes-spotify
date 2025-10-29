@@ -285,6 +285,10 @@
                             <label for="albumReleaseDate">Data e Hora de Lançamento</label>
                             <input type="datetime-local" id="albumReleaseDate" required />
                         </div>
+                        <div class="studio-form-group checkbox-group">
+                             <input type="checkbox" id="albumIsDeluxe" name="albumIsDeluxe" style="width: auto; margin-right: 8px;">
+                             <label for="albumIsDeluxe">Esta é uma Versão Deluxe</label>
+                        </div>
 
                         <hr class="form-divider" />
                         <h4>Tracklist <span class="track-helper">(<i class="fas fa-info-circle"></i> Duração define se é Álbum (&ge;30min) ou EP (&lt;30min))</span></h4>
@@ -335,6 +339,11 @@
                                 <label for="editReleaseDate">Data e Hora de Lançamento</label>
                                 <input type="datetime-local" id="editReleaseDate" required />
                             </div>
+                            <div class="studio-form-group checkbox-group hidden" id="editDeluxeGroup">
+                                 <input type="checkbox" id="editAlbumIsDeluxe" name="editAlbumIsDeluxe" style="width: auto; margin-right: 8px;">
+                                 <label for="editAlbumIsDeluxe">Esta é uma Versão Deluxe</label>
+                             </div>
+
 
                             <hr class="form-divider" />
                             <h4>Tracklist</h4>
@@ -444,6 +453,11 @@
                     <option value="Skit">Skit</option>
                 </select>
             </div>
+            <div class="studio-form-group checkbox-group">
+                 <input type="checkbox" id="albumTrackIsBonus" name="albumTrackIsBonus" style="width: auto; margin-right: 8px;">
+                 <label for="albumTrackIsBonus">Esta é uma Faixa Bônus</label>
+             </div>
+
 
             <div class="feat-section">
                 <label>Participações (Feat.)</label>
