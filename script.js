@@ -3952,87 +3952,97 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- 6. INICIALIZAÇÃO GERAL ---
      // Named handler for body clicks
-     function bodyClickHandler(event) {
-        console.log("Body click detected. Target:", event.target);
+    // Named handler for body clicks
+    function bodyClickHandler(event) {
+        // Log the actual element clicked for precise debugging
+        console.log("Body click detected. Target element:", event.target);
+
+        // Back Buttons (Check this FIRST for clarity)
+        const backButton = event.target.closest('[data-action="back"]');
+        if (backButton) {
+            console.log("Back button action matched.");
+            event.preventDefault(); // Prevent default if it's an anchor etc.
+            handleBack();
+            return; // <<<--- IMPORTANT: Stop processing here
+        }
+
+        // Refresh Buttons
+        const refreshButton = event.target.closest('[data-action="refresh"]');
+        if (refreshButton) {
+            console.log("Refresh button action matched.");
+            event.preventDefault();
+            const icon = refreshButton.querySelector('i');
+            if (icon) icon.classList.add('fa-spin');
+            refreshButton.disabled = true;
+
+            console.log("Manual refresh initiated...");
+            refreshAllData().finally(() => {
+                if (icon) icon.classList.remove('fa-spin');
+                refreshButton.disabled = false;
+                console.log("Manual refresh complete.");
+            });
+            return; // <<<--- IMPORTANT: Stop processing here
+        }
 
         // Artist Navigation
         const artistCard = event.target.closest('.artist-card[data-artist-name]');
         const artistLink = event.target.closest('.artist-link[data-artist-name]');
         if (artistCard) {
-            console.log("Artist card clicked:", artistCard.dataset.artistName);
+            console.log("Artist card action matched:", artistCard.dataset.artistName);
             openArtistDetail(artistCard.dataset.artistName);
-            return;
+            return; // <<<--- IMPORTANT
         }
         if (artistLink) {
-            console.log("Artist link clicked:", artistLink.dataset.artistName);
+            console.log("Artist link action matched:", artistLink.dataset.artistName);
             event.preventDefault();
             openArtistDetail(artistLink.dataset.artistName);
-            return;
+            return; // <<<--- IMPORTANT
         }
 
         // Album/Single Navigation
         const albumCard = event.target.closest('[data-album-id]');
         if (albumCard) {
-            console.log("Album card potentially clicked:", albumCard.dataset.albumId);
-            // Ignore clicks on action buttons within the edit list
-            if (event.target.closest('.action-buttons') || albumCard.closest('#editReleaseList')) {
-                 console.log("Ignoring click inside edit list actions.");
-                 return;
+            console.log("Album card potentially matched:", albumCard.dataset.albumId);
+            // Ignore clicks on action buttons within the edit list or studio forms
+            if (event.target.closest('.action-buttons') || event.target.closest('.studio-form-content')) {
+                console.log("Ignoring click inside edit list actions or studio form.");
+                 // No return here, might be other clickable things in this area
+            } else {
+                 // It's a valid album navigation click
+                 console.log("Navigating to album detail:", albumCard.dataset.albumId);
+                 openAlbumDetail(albumCard.dataset.albumId);
+                 return; // <<<--- IMPORTANT
             }
-            console.log("Navigating to album detail:", albumCard.dataset.albumId);
-            openAlbumDetail(albumCard.dataset.albumId);
-            return;
         }
 
         // Song Playback (Popular Songs, Tracklists, Charts)
         const songRow = event.target.closest('.song-row[data-song-id], .track-row[data-song-id].available, .chart-item[data-song-id]');
         if (songRow) {
-             console.log("Song row potentially clicked:", songRow.dataset.songId);
-             // Ignore clicks on action buttons within studio tracklist editors
-             if (event.target.closest('.track-actions button') || songRow.closest('.studio-form-content')) {
-                 console.log("Ignoring click inside studio track actions.");
-                 return;
-             }
-             console.log("Opening player for song:", songRow.dataset.songId);
-             openPlayer(songRow.dataset.songId, songRow);
-             return;
+            console.log("Song row potentially matched:", songRow.dataset.songId);
+            // Ignore clicks on action buttons within studio tracklist editors
+            if (event.target.closest('.track-actions button') || songRow.closest('.studio-form-content')) {
+                console.log("Ignoring click inside studio track actions.");
+                 // No return here
+            } else {
+                // It's a valid play click
+                console.log("Opening player for song:", songRow.dataset.songId);
+                openPlayer(songRow.dataset.songId, songRow);
+                return; // <<<--- IMPORTANT
+            }
         }
 
         // Discography "See All" Links
         const discogLink = event.target.closest('.discography-link[data-discog-type]');
         if (discogLink) {
-             console.log("Discography link clicked:", discogLink.dataset.discogType);
-             event.preventDefault();
-             openDiscographyDetail(discogLink.dataset.discogType);
-             return;
-        }
-
-        // Back Buttons
-        const backButton = event.target.closest('[data-action="back"]');
-        if (backButton) {
-            console.log("Back button clicked! Calling handleBack..."); // Log clearly
+            console.log("Discography link action matched:", discogLink.dataset.discogType);
             event.preventDefault();
-            handleBack();
-            return;
+            openDiscographyDetail(discogLink.dataset.discogType);
+            return; // <<<--- IMPORTANT
         }
 
-        // Refresh Buttons
-        const refreshButton = event.target.closest('[data-action="refresh"]');
-        if(refreshButton){
-            console.log("Refresh button clicked.");
-            event.preventDefault();
-            const icon = refreshButton.querySelector('i');
-            if(icon) icon.classList.add('fa-spin');
-            refreshButton.disabled = true;
-
-            console.log("Manual refresh initiated...");
-            refreshAllData().finally(() => {
-                if(icon) icon.classList.remove('fa-spin');
-                refreshButton.disabled = false;
-                console.log("Manual refresh complete.");
-            });
-            return;
-        }
+        // If no specific action matched above
+        console.log("Body click detected, but no specific interactive action matched.");
+    }
 
         console.log("Body click detected, but no specific action matched.");
      }
