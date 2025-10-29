@@ -655,12 +655,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- 2. NAVEGAÇÃO E UI ---
 
-    const switchView = (viewId) => {
-        console.log(`Switching to view: ${viewId}`); // Log view switch
+   const switchView = (viewId) => {
+        console.log(`Switching to view: ${viewId}`);
         const currentView = document.querySelector('.page-view:not(.hidden)');
         const currentViewId = currentView ? currentView.id : null;
 
-        // Clear album countdown interval if navigating away from album detail
+        // Clear album countdown interval if navigating away
         if (currentViewId === 'albumDetail' && viewId !== 'albumDetail' && albumCountdownInterval) {
             console.log("Clearing album countdown interval.");
             clearInterval(albumCountdownInterval);
@@ -676,33 +676,32 @@ document.addEventListener('DOMContentLoaded', async () => {
             target.classList.remove('hidden');
             window.scrollTo(0, 0); // Scroll to top
 
-            // Manage navigation history
-            if (viewId !== 'mainView' && viewId !== 'studioView') { // Don't push studio or main
-                // Only push if it's different from the last entry
-                if (viewHistory.length === 0 || viewHistory[viewHistory.length - 1] !== viewId) {
-                     // Prevent pushing the same view consecutively if navigating back and forth quickly
-                     if (viewHistory[viewHistory.length - 2] !== viewId) {
-                         console.log(`Pushing view to history: ${viewId}`);
-                         viewHistory.push(viewId);
-                     } else {
-                          console.log(`Avoiding push, view ${viewId} is the previous one.`);
-                     }
-
-                } else {
-                     console.log(`View ${viewId} is already the last in history, not pushing.`);
-                }
-            } else if (viewId === 'mainView') {
+            // --- Simplified History Management ---
+            if (viewId === 'mainView') {
+                // If navigating to main view, always clear history
                 console.log("Navigating to mainView, clearing history.");
-                viewHistory = []; // Reset history when returning to main view
+                viewHistory = [];
+            } else if (viewId !== 'studioView') {
+                // For any other view (except studio), only push if it's NOT already the last item
+                if (viewHistory.length === 0 || viewHistory[viewHistory.length - 1] !== viewId) {
+                    console.log(`Pushing view to history: ${viewId}`);
+                    viewHistory.push(viewId);
+                } else {
+                    // This log should now correctly appear when called from handleBack
+                    console.log(`View ${viewId} is already the last in history, not pushing.`);
+                }
             }
-             console.log("Current view history:", JSON.stringify(viewHistory)); // Always log history state
+            // We don't add 'studioView' to history
+
+            console.log("Current view history after switch:", JSON.stringify(viewHistory)); // Log final state
+            // --- End Simplified History Management ---
+
         } else {
             console.error(`View with ID "${viewId}" not found. Falling back to mainView.`);
             document.getElementById('mainView')?.classList.remove('hidden');
-            viewHistory = [];
+            viewHistory = []; // Reset history on error/fallback
         }
     };
-
 
     function activateMainViewSection(sectionId) {
         document.querySelectorAll('#mainView .content-section').forEach(s => s.classList.remove('active'));
