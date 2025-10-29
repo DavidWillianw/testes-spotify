@@ -331,14 +331,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return artist;
             });
 
-            const formatReleases = (records, isAlbum) => {
+            const formatReleases = (records, isAlbumTable) => { // Renamed parameter for clarity
                 if (!records) return [];
                 return records.map(record => {
                     const fields = record.fields;
                     const id = record.id;
                     // Find associated tracks from the map
                     const tracks = Array.from(musicasMap.values())
-                        .filter(song => (isAlbum ? song.albumIds.includes(id) : song.singleIds.includes(id)))
+                        .filter(song => (isAlbumTable ? song.albumIds.includes(id) : song.singleIds.includes(id)))
                         .sort((a, b) => (a.trackNumber || 0) - (b.trackNumber || 0)); // Sort by track number
 
                     const totalDuration = tracks.reduce((sum, track) => sum + (track.durationSeconds || 0), 0);
@@ -346,11 +346,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     const artistId = Array.isArray(fields['Artista']) ? fields['Artista'][0] : (fields['Artista'] || null);
                     const artistName = artistId ? artistsMapById.get(artistId) : "Artista Desconhecido";
-                    const imageFieldName = isAlbum ? 'Capa do Álbum' : 'Capa';
+                    const imageFieldName = isAlbumTable ? 'Capa do Álbum' : 'Capa';
                     const imageUrl = (fields[imageFieldName]?.[0]?.url) || 'https://i.imgur.com/AD3MbBi.png'; // Default image
 
                     // Airtable DATETIME fields return ISO 8601 UTC strings
                     const releaseDateISO = fields['Data de Lançamento'] || null;
+
+                    // Determine type based on duration for albums table, default to single otherwise
+                    let releaseType = 'single'; // Default
+                     if (isAlbumTable) {
+                        // For items from the 'Álbuns' table, check duration
+                        const IS_ALBUM_THRESHOLD_SECONDS = 30 * 60;
+                        releaseType = totalDuration >= IS_ALBUM_THRESHOLD_SECONDS ? 'album' : 'single'; // Classify as album or EP(single)
+                    }
 
                     return {
                         id: id,
@@ -365,8 +373,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         totalDurationSeconds: totalDuration,
                         weeklyStreams: fields['Stream do album'] || 0, // Ensure field name matches Airtable
                         totalStreams: totalAlbumStreams,
-                        type: isAlbum ? 'album' : 'single',
-                        tableName: isAlbum ? 'Álbuns' : 'Singles e EPs'
+                        type: releaseType, // Use calculated type
+                        tableName: isAlbumTable ? 'Álbuns' : 'Singles e EPs'
                     };
                 });
             };
@@ -384,8 +392,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.log("Dados do Airtable carregados e formatados.");
             return {
                 allArtists: artistsList,
-                albums: formattedAlbums,
-                singles: formattedSingles,
+                albums: formattedAlbums, // Contains actual albums based on duration
+                singles: formattedSingles, // Contains singles AND EPs (items < 30min from Album table are now here)
                 players: formattedPlayers,
                 musicas: Array.from(musicasMap.values()) // Convert map values back to array
             };
@@ -475,15 +483,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                 (item.trackIds || []).forEach(trackId => {
                     const songInDb = db.songs.find(sDb => sDb.id === trackId);
                     if (songInDb) {
-                        if (songInDb.albumId === item.id && songInDb.cover === 'https://i.imgur.com/AD3MbBi.png') {
-                            songInDb.cover = item.imageUrl;
+                        // Prioritize cover from the 'main' linked release (albumId)
+                        if (songInDb.albumId === item.id) {
+                             songInDb.cover = item.imageUrl;
                         }
-                        else if (!songInDb.albumId) {
-                            if (songInDb.cover === 'https://i.imgur.com/AD3MbBi.png') {
-                                songInDb.cover = item.imageUrl;
-                            }
-                            songInDb.albumId = item.id;
+                        // If song still has default cover and this release is *any* link, update cover
+                        else if (songInDb.cover === 'https://i.imgur.com/AD3MbBi.png' && (songInDb.albumIds.includes(item.id) || songInDb.singleIds.includes(item.id))) {
+                             songInDb.cover = item.imageUrl;
                         }
+                        // Ensure albumId points to the primary release if not set
+                        if (!songInDb.albumId && (songInDb.albumIds.includes(item.id) || songInDb.singleIds.includes(item.id))) {
+                           songInDb.albumId = item.id;
+                        }
+
                         if (!songInDb.parentReleaseDate && item.releaseDate) {
                             console.warn(`Song ${songInDb.id} lacked parentReleaseDate, setting from ${item.id}`);
                             songInDb.parentReleaseDate = item.releaseDate;
@@ -491,13 +503,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                 });
 
-                // Add the release to the correct array (db.albums or db.singles)
-                // and associate it with the primary artist
+                // Add the release to the correct array (db.albums or db.singles) based on its 'type'
                 const artistEntry = db.artists.find(a => a.id === item.artistId);
-                if (item.type === 'album') {
+                if (item.type === 'album') { // Now accurately reflects >= 30 min duration
                     db.albums.push(item);
                     if (artistEntry) { artistEntry.albums.push(item); }
-                } else {
+                } else { // Includes singles and EPs (< 30 min)
                     db.singles.push(item);
                     if (artistEntry) { artistEntry.singles.push(item); }
                 }
@@ -509,7 +520,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Assign players data
             db.players = data.players || [];
 
-            console.log(`DB Initialized: Artists: ${db.artists.length}, Albums: ${db.albums.length}, Singles: ${db.singles.length}, Songs: ${db.songs.length}, Players: ${db.players.length}`);
+            console.log(`DB Initialized: Artists: ${db.artists.length}, Albums: ${db.albums.length}, Singles/EPs: ${db.singles.length}, Songs: ${db.songs.length}, Players: ${db.players.length}`);
             return true; // Indicate successful initialization
         } catch (error) {
             console.error("ERRO CRÍTICO durante initializeData:", error);
@@ -535,6 +546,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         } else if (chartType === 'album') {
             storageKey = PREVIOUS_ALBUM_CHART_KEY;
+            // Chart includes both albums and singles/EPs, sorted by weekly streams
             dataList = [...db.albums, ...db.singles]
                 .filter(item => (item.weeklyStreams || 0) > 0 && item.releaseDate && new Date(item.releaseDate) <= now)
                 .sort((a, b) => (b.weeklyStreams || 0) - (a.weeklyStreams || 0))
@@ -644,13 +656,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- 2. NAVEGAÇÃO E UI ---
 
     const switchView = (viewId) => {
-        console.log(`switchView called with viewId: ${viewId}`); // <--- ADICIONE ESTA LINHA
-        console.log(`Mudando para view: ${viewId}`);
+        console.log(`Switching to view: ${viewId}`); // Log view switch
         const currentView = document.querySelector('.page-view:not(.hidden)');
+        const currentViewId = currentView ? currentView.id : null;
 
         // Clear album countdown interval if navigating away from album detail
-        if (currentView && currentView.id === 'albumDetail' && viewId !== 'albumDetail' && albumCountdownInterval) {
-            console.log("Limpando intervalo de contagem regressiva do álbum.");
+        if (currentViewId === 'albumDetail' && viewId !== 'albumDetail' && albumCountdownInterval) {
+            console.log("Clearing album countdown interval.");
             clearInterval(albumCountdownInterval);
             albumCountdownInterval = null;
         }
@@ -662,34 +674,35 @@ document.addEventListener('DOMContentLoaded', async () => {
         const target = document.getElementById(viewId);
         if (target) {
             target.classList.remove('hidden');
-            // Add data attribute for album ID when switching to album detail
-            if (viewId === 'albumDetail' && target.dataset.albumId) {
-                // Ensure the dataset reflects the currently viewed album
-                // The dataset.albumId should ideally be set in openAlbumDetail
-            } else if (viewId !== 'albumDetail') {
-                // Clear the dataset when leaving album detail
-                const albumDetailView = document.getElementById('albumDetail');
-                if (albumDetailView) delete albumDetailView.dataset.albumId;
-            }
-
             window.scrollTo(0, 0); // Scroll to top
 
-            // Manage navigation history (push non-main views, clear on main view)
-            if (viewId !== 'mainView' && viewId !== 'studioView') { // Don't push studio view to history for simplicity
+            // Manage navigation history
+            if (viewId !== 'mainView' && viewId !== 'studioView') { // Don't push studio or main
+                // Only push if it's different from the last entry
                 if (viewHistory.length === 0 || viewHistory[viewHistory.length - 1] !== viewId) {
-                    viewHistory.push(viewId);
+                     // Prevent pushing the same view consecutively if navigating back and forth quickly
+                     if (viewHistory[viewHistory.length - 2] !== viewId) {
+                         console.log(`Pushing view to history: ${viewId}`);
+                         viewHistory.push(viewId);
+                     } else {
+                          console.log(`Avoiding push, view ${viewId} is the previous one.`);
+                     }
+
+                } else {
+                     console.log(`View ${viewId} is already the last in history, not pushing.`);
                 }
             } else if (viewId === 'mainView') {
+                console.log("Navigating to mainView, clearing history.");
                 viewHistory = []; // Reset history when returning to main view
             }
-            console.log("Histórico de views:", viewHistory);
+             console.log("Current view history:", JSON.stringify(viewHistory)); // Always log history state
         } else {
-            console.error(`View com ID "${viewId}" não encontrada. Voltando para mainView.`);
-            // Fallback to mainView if target doesn't exist
+            console.error(`View with ID "${viewId}" not found. Falling back to mainView.`);
             document.getElementById('mainView')?.classList.remove('hidden');
             viewHistory = [];
         }
     };
+
 
     function activateMainViewSection(sectionId) {
         document.querySelectorAll('#mainView .content-section').forEach(s => s.classList.remove('active'));
@@ -710,24 +723,24 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (forceTabId) {
             targetTabId = forceTabId;
-            console.log(`Forçando troca para tab: ${targetTabId}`);
+            console.log(`Forcing switch to tab: ${targetTabId}`);
         } else if (event) {
             event.preventDefault();
             const clickedButton = event.target.closest('[data-tab]');
             if (!clickedButton) {
-                console.log("switchTab: Elemento clicado não possui 'data-tab'.");
+                console.log("switchTab: Clicked element lacks 'data-tab'.");
                 return;
             }
             targetTabId = clickedButton.dataset.tab;
-            console.log(`Trocando para tab via clique: ${targetTabId}`);
+            console.log(`Switching to tab via click: ${targetTabId}`);
         } else {
-            console.log("switchTab: Chamado sem evento ou forceTabId.");
+            console.log("switchTab: Called without event or forceTabId.");
             return;
         }
 
         // --- View Switching Logic ---
         if (targetTabId === 'studioSection') {
-            console.log("Mudando para a view do Estúdio.");
+            console.log("Switching to Studio view.");
             switchView('studioView');
             const activeStudioTabButton = document.querySelector('.studio-tab-btn.active');
             if (activeStudioTabButton?.dataset.form === 'edit') {
@@ -745,35 +758,58 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
             const mainViewElement = document.getElementById('mainView');
             if (mainViewElement?.classList.contains('hidden')) {
-                console.log("Mudando para a view Principal.");
+                console.log("Switching to Main view.");
                 switchView('mainView');
             }
-            console.log(`Ativando seção dentro da view Principal: ${targetTabId}`);
+            console.log(`Activating section within Main view: ${targetTabId}`);
             targetTabId = activateMainViewSection(targetTabId); // Activate and get the final section ID (could be fallback)
         }
 
         // --- Update Active State for Navigation Buttons ---
-        console.log(`Atualizando estado ativo para botões de navegação [data-tab="${targetTabId}"]`);
+        console.log(`Updating active state for nav buttons [data-tab="${targetTabId}"]`);
         document.querySelectorAll('.nav-tab, .bottom-nav-item').forEach(button => button.classList.remove('active'));
         document.querySelectorAll(`.nav-tab[data-tab="${targetTabId}"], .bottom-nav-item[data-tab="${targetTabId}"]`).forEach(button => button.classList.add('active'));
     };
 
     const handleBack = () => {
-        console.log("handleBack called. Current history:", JSON.stringify(viewHistory)); // <--- ADICIONE ESTA LINHA
+        console.log("handleBack triggered. Current history before pop:", JSON.stringify(viewHistory));
         const currentViewElement = document.querySelector('.page-view:not(.hidden)');
-        console.log("Botão Voltar pressionado.");
+        const currentViewId = currentViewElement ? currentViewElement.id : 'unknown';
+        console.log(`Currently in view: ${currentViewId}`);
 
-        if (currentViewElement && currentViewElement.id === 'albumDetail' && albumCountdownInterval) {
-            console.log("Limpando contagem regressiva do álbum ao voltar.");
+        if (currentViewId === 'albumDetail' && albumCountdownInterval) {
+            console.log("Clearing album countdown.");
             clearInterval(albumCountdownInterval);
             albumCountdownInterval = null;
         }
 
-        viewHistory.pop(); // Remove a view atual
-        const previousViewId = viewHistory.pop() || 'mainView'; // Pega a view anterior
-        console.log("Popped history. Intending to switch to:", previousViewId); // <--- ADICIONE ESTA LINHA
-        switchView(previousViewId); // Switch to the previous view
+        // Remove the current view from history IF it's the last one added
+        if (viewHistory.length > 0 && viewHistory[viewHistory.length - 1] === currentViewId) {
+             const poppedView = viewHistory.pop();
+             console.log(`Popped current view (${poppedView}) from history.`);
+        } else if (viewHistory.length > 0) {
+            console.warn(`Current view (${currentViewId}) doesn't match last history entry (${viewHistory[viewHistory.length - 1]}). Popping last entry anyway.`);
+             viewHistory.pop(); // Still pop the last one as intended navigation target
+        } else {
+             console.log("History is empty, cannot pop current view.");
+        }
+
+
+        // Determine the previous view (or fallback to main)
+        const previousViewId = viewHistory.pop() || 'mainView'; // Pop again to get the actual previous view
+        console.log(`Determined previous view ID: ${previousViewId}. History after second pop:`, JSON.stringify(viewHistory));
+
+        // IMPORTANT: Push the target view back onto history *after* switching
+        // This allows correct forward/back navigation if the user goes back then forward immediately
+        // switchView will handle not double-pushing if previousViewId === last element
+
+        switchView(previousViewId);
+
+         // We don't manually push previousViewId back here. switchView handles history.
+         // If previousViewId is mainView, switchView clears history.
+         // If previousViewId is a detail view, switchView will push it correctly.
     };
+
 
     const renderArtistsGrid = (containerId, artists) => {
         const container = document.getElementById(containerId);
@@ -811,7 +847,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (collabType === 'Dueto/Grupo') {
             return `${mainArtist} & ${otherArtists}`;
         } else { // Default or 'Feat.'
-            // Adjusted to always return the full formatted name for display consistency
             return `${mainArtist} (feat. ${otherArtists})`;
         }
     }
@@ -835,7 +870,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             previousData = previousMusicChartData;
         } else if (type === 'album') {
             containerId = 'albumChartsList';
-            dataList = [...db.albums, ...db.singles]
+            dataList = [...db.albums, ...db.singles] // Combine both for the album chart
                 .filter(item => (item.weeklyStreams || 0) > 0 && item.releaseDate && new Date(item.releaseDate) <= now)
                 .sort((a, b) => (b.weeklyStreams || 0) - (a.weeklyStreams || 0)) // Sort by weekly streams (desc)
                 .slice(0, 50); // Get top 50
@@ -891,12 +926,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             } else { // type === 'album'
                 return `
                     <div class="chart-item" data-album-id="${item.id}">
-                          ${indicatorHtml}
+                        ${indicatorHtml}
                         <span class="chart-rank">${currentRank}</span>
                         <img src="${item.imageUrl}" alt="${item.title}" class="chart-item-img">
                         <div class="chart-item-info">
                             <span class="chart-item-title">${item.title}</span>
                             <span class="chart-item-artist">${item.artist}</span>
+                             <span class="release-type-badge ${item.type}" style="font-size: 9px; margin-left:0; margin-top: 3px;">${item.type === 'album' ? 'Álbum' : 'EP/Single'}</span>
                         </div>
                         <span class="chart-item-score">${(item.weeklyStreams || 0).toLocaleString('pt-BR')}</span>
                     </div>`;
@@ -1048,13 +1084,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (isAvailable) {
                     return `
                         <div class="track-row available" data-song-id="${track.id}">
-                            <span class="track-number"><i class="fas fa-play"></i></span>
-                            <div class="track-info">
-                                <span class="track-title">${track.title}</span>
-                                <span class="track-artist-feat">${artistName}</span>
-                            </div>
-                            <span class="track-duration">${track.duration}</span>
-                        </div>`;
+                             <span class="track-number">${trackNumDisplay}</span>
+                             <div class="track-info">
+                                 <span class="track-title">${track.title}</span>
+                                 <span class="track-artist-feat">${artistName}</span>
+                             </div>
+                             <span class="track-duration">${track.duration}</span>
+                         </div>`;
                 } else {
                     return `
                         <div class="track-row unavailable">
@@ -1216,7 +1252,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (daysUntilMonday === 0 && (now.getUTCHours() > 0 || now.getUTCMinutes() > 0 || now.getUTCSeconds() > 0)) {
                     daysUntilMonday = 7;
                 } else if (daysUntilMonday === 0 && now.getUTCHours() === 0 && now.getUTCMinutes() === 0 && now.getUTCSeconds() === 0) {
-                    // daysUntilMonday = 7; // Mantenha comentado ou remova
+                    // It's exactly midnight UTC on Monday, target next Monday
+                    daysUntilMonday = 7;
                 }
                 target.setUTCDate(now.getUTCDate() + daysUntilMonday);
                 target.setUTCHours(0, 0, 0, 0);
@@ -1978,7 +2015,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 albumTrackModalTitle.textContent = 'Editar Faixa (Existente)';
                 editingTrackExistingId.value = existingSongId;
 
-                // *** MUDANÇA: HABILITA A EDIÇÃO ***
+                // *** HABILITA A EDIÇÃO ***
                 albumTrackNameInput.disabled = false;
                 albumTrackDurationInput.disabled = false;
                 if (featSectionElement) featSectionElement.classList.remove('hidden'); // Mostra feats
@@ -2192,11 +2229,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             }
             numberSpan.textContent = `${index + 1}.`;
-            numberSpan.style.fontWeight = '700';
-            numberSpan.style.color = 'var(--text-secondary)';
-            numberSpan.style.width = '25px';
-            numberSpan.style.textAlign = 'right';
-            numberSpan.style.marginRight = '5px';
+            // Removed redundant style setting as it's handled by CSS
         });
     }
 
@@ -2367,7 +2400,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.log(`Registro ${recordId} em ${tableName} excluído com sucesso (Status: ${response.status}).`);
                 return { deleted: true, id: recordId };
             } else {
-                return await response.json();
+                // Try parsing JSON even for DELETE if there might be content
+                 try {
+                     return await response.json();
+                 } catch (e) {
+                      console.log(`Registro ${recordId} em ${tableName} excluído com sucesso (Status: ${response.status}, no JSON body).`);
+                      return { deleted: true, id: recordId }; // Assume success if no JSON but status ok
+                 }
             }
         } catch (error) {
             console.error(`Falha na requisição DELETE para ${tableName} (ID: ${recordId}):`, error);
@@ -2412,18 +2451,27 @@ document.addEventListener('DOMContentLoaded', async () => {
                     }
                     // break; // Uncomment to stop on first batch failure
                 } else {
-                    if (response.status === 204 || response.headers.get("content-length") === "0") {
-                        console.warn(`Lote DELETE para ${tableName} retornou ${response.status} inesperado.`);
-                        chunk.forEach(id => deletedResults.push({ id: id, deleted: true }));
-                    } else {
-                        const data = await response.json();
-                        if (data.records) {
-                            deletedResults.push(...data.records);
-                        } else {
-                            console.warn("Formato inesperado na resposta do lote DELETE:", data);
-                            chunk.forEach(id => deletedResults.push({ id: id, deleted: true }));
-                        }
-                    }
+                     // Check if response has content before parsing JSON
+                     const contentLength = response.headers.get("content-length");
+                     if (response.status === 204 || contentLength === "0") {
+                          console.log(`Lote DELETE para ${tableName} (IDs: ${chunk.join(', ')}) bem-sucedido (Status: ${response.status}).`);
+                          chunk.forEach(id => deletedResults.push({ id: id, deleted: true }));
+                     } else {
+                         try {
+                              const data = await response.json();
+                              if (data.records) {
+                                  // Map results to ensure consistency
+                                  const resultMap = new Map(data.records.map(r => [r.id, r]));
+                                  chunk.forEach(id => deletedResults.push(resultMap.get(id) || { id: id, deleted: false, error: 'ID not found in response' }));
+                              } else {
+                                  console.warn("Formato inesperado na resposta do lote DELETE:", data);
+                                  chunk.forEach(id => deletedResults.push({ id: id, deleted: true, warning: 'Unexpected response format' })); // Assume success with warning
+                              }
+                         } catch (e) {
+                              console.warn(`Lote DELETE para ${tableName} (IDs: ${chunk.join(', ')}) retornou status OK mas falhou ao parsear JSON:`, e);
+                               chunk.forEach(id => deletedResults.push({ id: id, deleted: true, warning: 'Failed to parse JSON response' })); // Assume success with warning
+                         }
+                     }
                 }
             } catch (error) {
                 allBatchesSucceeded = false;
@@ -2764,18 +2812,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             const releaseDateTimeLocal = singleReleaseDateInput.value;
             const existingSongId = existingSingleTrackId.value;
 
-            // Converte YYYY-MM-DDTHH:MM para YYYY-MM-DD para Airtable
-            const releaseDateISO = releaseDateTimeLocal.split('T')[0];
-            if (isNaN(new Date(releaseDateISO).getTime())) {
-                throw new Error("Data/Hora de lançamento inválida após conversão.");
-            }
+            // Converte YYYY-MM-DDTHH:MM para ISO 8601 UTC ZULU format expected by Airtable
+             let releaseDateISO;
+             try {
+                // Parse local time and convert to UTC ISO string
+                const localDate = new Date(releaseDateTimeLocal);
+                if (isNaN(localDate.getTime())) {
+                    throw new Error("Data/Hora de lançamento inválida.");
+                }
+                releaseDateISO = localDate.toISOString();
+             } catch(e) {
+                 throw new Error("Formato inválido para Data/Hora de Lançamento.");
+             }
+
 
             // --- Step 1: Create Single/EP Record ---
             const singleRecordFields = {
                 "Nome do Single/EP": title,
                 "Artista": [artistId],
                 "Capa": [{ "url": coverUrl }],
-                "Data de Lançamento": releaseDateISO
+                "Data de Lançamento": releaseDateISO // Use full ISO string
             };
             const singleResponse = await createAirtableRecord('Singles e EPs', singleRecordFields);
 
@@ -2792,6 +2848,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.log(`Atualizando faixa existente ID: ${existingSongId} para vincular ao novo single ${newSingleId}`);
                 const songData = db.songs.find(s => s.id === existingSongId);
                 const existingSingleLinks = songData?.singleIds || [];
+                // Add the new single ID, ensure uniqueness
                 const updatedSingleLinks = [...new Set([...existingSingleLinks, newSingleId])];
 
                 const musicUpdateFields = {
@@ -2883,7 +2940,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (albumTracklistEditor) {
             albumTracklistEditor.innerHTML = '<p class="empty-state-small">Nenhuma faixa adicionada.</p>';
         }
-        updateTrackNumbers(albumTracklistEditor); // Passa o editor correto
+        // updateTrackNumbers(albumTracklistEditor); // Called below after potential Sortable init
 
         if (albumTracklistEditor && typeof Sortable !== 'undefined') {
             if (albumTracklistSortable) {
@@ -2892,196 +2949,208 @@ document.addEventListener('DOMContentLoaded', async () => {
             albumTracklistSortable = Sortable.create(albumTracklistEditor, {
                 animation: 150,
                 handle: '.drag-handle',
-                onEnd: () => updateTrackNumbers(albumTracklistEditor) // Passa o editor correto
+                onEnd: () => updateTrackNumbers(albumTracklistEditor) // Pass the correct editor
             });
+             console.log("SortableJS initialized for NEW album form.");
         } else if (typeof Sortable === 'undefined') {
             console.warn("Biblioteca SortableJS não carregada. Funcionalidade de arrastar e soltar tracklist desativada.");
         }
+         updateTrackNumbers(albumTracklistEditor); // Ensure numbers are correct even if Sortable fails
     }
 
-    async function handleAlbumSubmit(event) {
-        event.preventDefault();
-        const submitButton = document.getElementById('submitNewAlbum');
-        if (!submitButton) return;
 
-        submitButton.disabled = true;
-        submitButton.textContent = 'Enviando...';
-        let isAlbum = false; // Initialize flag, will be determined by duration
+   async function handleAlbumSubmit(event) {
+       event.preventDefault();
+       const submitButton = document.getElementById('submitNewAlbum');
+       if (!submitButton) return;
 
-        try {
-            const artistId = albumArtistSelect?.value;
-            const title = document.getElementById('albumTitle')?.value;
-            const coverUrl = document.getElementById('albumCoverUrl')?.value;
-            const releaseDateTimeLocal = albumReleaseDateInput?.value;
+       submitButton.disabled = true;
+       // Button text will be set later based on type
+       let isAlbum = false; // Initialize flag, will be determined by duration
+       let totalDurationSeconds = 0; // Initialize duration here
 
-            if (!artistId || !title || !coverUrl || !releaseDateTimeLocal) {
-                throw new Error("Preencha todos os campos do Álbum/EP (Artista, Nome, Capa, Data/Hora).");
-            }
+       try {
+           const artistId = albumArtistSelect?.value;
+           const title = document.getElementById('albumTitle')?.value;
+           const coverUrl = document.getElementById('albumCoverUrl')?.value;
+           const releaseDateTimeLocal = albumReleaseDateInput?.value;
 
-            const releaseDateISO = releaseDateTimeLocal.split('T')[0];
-            if (isNaN(new Date(releaseDateISO).getTime())) {
-                throw new Error("Data/Hora de lançamento inválida.");
-            }
+           if (!artistId || !title || !coverUrl || !releaseDateTimeLocal) {
+               throw new Error("Preencha todos os campos do Álbum/EP (Artista, Nome, Capa, Data/Hora).");
+           }
 
-            const trackItems = albumTracklistEditor?.querySelectorAll('.track-list-item-display');
-            if (!trackItems || trackItems.length === 0) {
-                throw new Error("Adicione pelo menos uma faixa ao Álbum/EP.");
-            }
+            // Convert YYYY-MM-DDTHH:MM local to ISO 8601 UTC ZULU format
+            let releaseDateISO;
+             try {
+                const localDate = new Date(releaseDateTimeLocal);
+                if (isNaN(localDate.getTime())) { throw new Error("Data/Hora inválida."); }
+                releaseDateISO = localDate.toISOString();
+             } catch(e) {
+                 throw new Error("Formato inválido para Data/Hora de Lançamento.");
+             }
 
-            let totalDurationSeconds = 0;
-            const musicRecordsToCreate = [];
-            const musicRecordsToUpdate = [];
 
-            // --- Loop through tracks to calculate total duration and prepare data ---
-            for (let i = 0; i < trackItems.length; i++) {
-                const item = trackItems[i];
-                const existingSongId = item.dataset.existingSongId;
-                const name = item.dataset.trackName;
-                const durationStr = item.dataset.durationStr;
-                const type = item.dataset.trackType;
-                let feats = [];
-                if (!existingSongId) { // Only parse feats for new tracks within this context
-                    try { feats = JSON.parse(item.dataset.feats || '[]'); } catch (e) {}
-                }
-                const durationSec = parseDurationToSeconds(durationStr);
+           const trackItems = albumTracklistEditor?.querySelectorAll('.track-list-item-display');
+           if (!trackItems || trackItems.length === 0) {
+               throw new Error("Adicione pelo menos uma faixa ao Álbum/EP.");
+           }
 
-                if (!name || (!existingSongId && durationSec === 0)) { // Duration required only for NEW tracks here
-                    throw new Error(`Dados inválidos na Faixa ${i + 1}. Verifique nome e duração (MM:SS).`);
-                }
-                totalDurationSeconds += durationSec; // Sum duration regardless of existing/new
 
-                if (existingSongId) {
-                    // Prepare data to update existing music record
-                    musicRecordsToUpdate.push({
-                        id: existingSongId,
-                        fields: {
-                            "Nº da Faixa": i + 1,
-                            "Tipo de Faixa": type
-                            // Link will be added later after release record is created
-                        }
-                    });
-                } else {
-                    // Prepare data to create new music record
-                    let finalTrackName = name;
-                    let finalArtistIds = [artistId];
-                    let collaborationType = null;
-                    if (feats.length > 0) {
-                        collaborationType = feats[0].type;
-                        finalArtistIds = [artistId, ...feats.map(f => f.id)];
-                        if (collaborationType === "Feat.") {
-                            finalTrackName = `${name} (feat. ${feats.map(f => f.name).join(', ')})`;
-                        }
-                    }
-                    musicRecordsToCreate.push({
-                        "Nome da Faixa": finalTrackName,
-                        "Artista": finalArtistIds,
-                        "Duração": durationSec,
-                        "Nº da Faixa": i + 1,
-                        "Tipo de Faixa": type,
-                        ...(collaborationType && { "Tipo de Colaboração": collaborationType })
-                        // Link will be added later after release record is created
-                    });
-                }
-            } // --- End of track processing loop ---
+           const musicRecordsToCreate = [];
+           const musicRecordsToUpdate = [];
 
-            // --- *** Determine if it's an Album or EP based on duration *** ---
-            const IS_ALBUM_THRESHOLD_SECONDS = 30 * 60; // 30 minutes in seconds
-            isAlbum = totalDurationSeconds >= IS_ALBUM_THRESHOLD_SECONDS; // Set the flag based on duration
+           // --- Loop through tracks to calculate total duration and prepare data ---
+           for (let i = 0; i < trackItems.length; i++) {
+               const item = trackItems[i];
+               const existingSongId = item.dataset.existingSongId;
+               const name = item.dataset.trackName;
+               const durationStr = item.dataset.durationStr;
+               const type = item.dataset.trackType;
+               let feats = [];
+               if (!existingSongId) { // Only parse feats for new tracks within this context
+                   try { feats = JSON.parse(item.dataset.feats || '[]'); } catch (e) {}
+               }
+               const durationSec = parseDurationToSeconds(durationStr);
 
-            const targetTableName = isAlbum ? 'Álbuns' : 'Singles e EPs';
-            const nameFieldName = isAlbum ? 'Nome do Álbum' : 'Nome do Single/EP';
-            const coverFieldName = isAlbum ? 'Capa do Álbum' : 'Capa';
-            const linkFieldName = isAlbum ? 'Álbuns' : 'Singles e EPs'; // Field name in 'Músicas' table
+               if (!name || (!existingSongId && durationSec === 0)) { // Duration required only for NEW tracks here
+                   throw new Error(`Dados inválidos na Faixa ${i + 1}. Verifique nome e duração (MM:SS).`);
+               }
+               totalDurationSeconds += durationSec; // Sum duration regardless of existing/new
 
-            console.log(`Duração Total: ${totalDurationSeconds}s. Classificado como: ${isAlbum ? 'Álbum' : 'EP'}. Criando registro em ${targetTableName}...`);
+               if (existingSongId) {
+                   // Prepare data to update existing music record
+                   musicRecordsToUpdate.push({
+                       id: existingSongId,
+                       fields: {
+                           "Nº da Faixa": i + 1,
+                           "Tipo de Faixa": type
+                           // Link will be added later after release record is created
+                       }
+                   });
+               } else {
+                   // Prepare data to create new music record
+                   let finalTrackName = name;
+                   let finalArtistIds = [artistId];
+                   let collaborationType = null;
+                   if (feats.length > 0) {
+                       collaborationType = feats[0].type;
+                       finalArtistIds = [artistId, ...feats.map(f => f.id)];
+                       if (collaborationType === "Feat.") {
+                           finalTrackName = `${name} (feat. ${feats.map(f => f.name).join(', ')})`;
+                       }
+                   }
+                   musicRecordsToCreate.push({
+                       "Nome da Faixa": finalTrackName,
+                       "Artista": finalArtistIds,
+                       "Duração": durationSec,
+                       "Nº da Faixa": i + 1,
+                       "Tipo de Faixa": type,
+                       ...(collaborationType && { "Tipo de Colaboração": collaborationType })
+                       // Link will be added later after release record is created
+                   });
+               }
+           } // --- End of track processing loop ---
 
-            // --- Step 1: Create the Album/EP record ---
-            const releaseRecordFields = {
-                [nameFieldName]: title,
-                "Artista": [artistId],
-                [coverFieldName]: [{ "url": coverUrl }],
-                "Data de Lançamento": releaseDateISO
-                // Add other relevant fields if necessary (e.g., Metascore default?)
-            };
-            const releaseResponse = await createAirtableRecord(targetTableName, releaseRecordFields);
+           // --- *** Determine if it's an Album or EP based on duration *** ---
+           const IS_ALBUM_THRESHOLD_SECONDS = 30 * 60; // 30 minutes in seconds
+           isAlbum = totalDurationSeconds >= IS_ALBUM_THRESHOLD_SECONDS; // Set the flag based on duration
 
-            if (!releaseResponse || !releaseResponse.id) {
-                throw new Error(`Falha ao criar o registro ${isAlbum ? 'do Álbum' : 'do EP'} no Airtable.`);
-            }
-            const newReleaseId = releaseResponse.id;
-            console.log(`${isAlbum ? 'Álbum' : 'EP'} criado com ID: ${newReleaseId}`);
+           const targetTableName = isAlbum ? 'Álbuns' : 'Singles e EPs';
+           const nameFieldName = isAlbum ? 'Nome do Álbum' : 'Nome do Single/EP';
+           const coverFieldName = isAlbum ? 'Capa do Álbum' : 'Capa';
+           const linkFieldName = isAlbum ? 'Álbuns' : 'Singles e EPs'; // Field name in 'Músicas' table
 
-            // --- Step 2: Add the link to the created Album/EP to the music records ---
-            musicRecordsToCreate.forEach(record => { record[linkFieldName] = [newReleaseId]; });
-            musicRecordsToUpdate.forEach(record => {
-                // Need to fetch original links to APPEND, not overwrite
-                const originalSong = db.songs.find(s => s.id === record.id);
-                const existingLinks = (isAlbum ? originalSong?.albumIds : originalSong?.singleIds) || [];
-                record.fields[linkFieldName] = [...new Set([...existingLinks, newReleaseId])]; // Add new link, ensuring no duplicates
-            });
+            submitButton.textContent = `Lançando ${isAlbum ? 'Álbum' : 'EP'}...`; // Update button text now
 
-            // --- Step 3: Create/Update Music Records in Batch ---
-            let createdMusicResult = null;
-            let updatedMusicResult = null;
-            let allMusicOpsSucceeded = true;
+           console.log(`Duração Total: ${totalDurationSeconds}s. Classificado como: ${isAlbum ? 'Álbum' : 'EP'}. Criando registro em ${targetTableName}...`);
 
-            if (musicRecordsToCreate.length > 0) {
-                console.log(`Criando ${musicRecordsToCreate.length} novas músicas...`);
-                createdMusicResult = await batchCreateAirtableRecords('Músicas', musicRecordsToCreate);
-                if (!createdMusicResult || createdMusicResult.length !== musicRecordsToCreate.length) {
-                    allMusicOpsSucceeded = false;
-                    console.error("Falha ao criar uma ou mais músicas novas no lote.");
-                    // Consider more robust error handling/rollback here if critical
-                } else {
-                    console.log(`${createdMusicResult.length} novas músicas criadas.`);
-                }
-            }
-            if (musicRecordsToUpdate.length > 0) {
-                console.log(`Atualizando ${musicRecordsToUpdate.length} músicas existentes...`);
-                updatedMusicResult = await batchUpdateAirtableRecords('Músicas', musicRecordsToUpdate);
-                if (!updatedMusicResult || updatedMusicResult.length !== musicRecordsToUpdate.length) {
-                    allMusicOpsSucceeded = false;
-                    console.error("Falha ao atualizar uma ou mais músicas existentes no lote.");
-                    // Consider more robust error handling/rollback here if critical
-                } else {
+           // --- Step 1: Create the Album/EP record ---
+           const releaseRecordFields = {
+               [nameFieldName]: title,
+               "Artista": [artistId],
+               [coverFieldName]: [{ "url": coverUrl }],
+               "Data de Lançamento": releaseDateISO // Use full ISO string
+               // Add other relevant fields if necessary (e.g., Metascore default?)
+           };
+           const releaseResponse = await createAirtableRecord(targetTableName, releaseRecordFields);
+
+           if (!releaseResponse || !releaseResponse.id) {
+               throw new Error(`Falha ao criar o registro ${isAlbum ? 'do Álbum' : 'do EP'} no Airtable.`);
+           }
+           const newReleaseId = releaseResponse.id;
+           console.log(`${isAlbum ? 'Álbum' : 'EP'} criado com ID: ${newReleaseId}`);
+
+           // --- Step 2: Add the link to the created Album/EP to the music records ---
+           musicRecordsToCreate.forEach(record => { record[linkFieldName] = [newReleaseId]; });
+           musicRecordsToUpdate.forEach(record => {
+               // Need to fetch original links to APPEND, not overwrite
+               const originalSong = db.songs.find(s => s.id === record.id);
+               // Determine which link array to use based on the target table (isAlbum)
+               const existingLinks = (isAlbum ? originalSong?.albumIds : originalSong?.singleIds) || [];
+               record.fields[linkFieldName] = [...new Set([...existingLinks, newReleaseId])]; // Add new link, ensuring no duplicates
+           });
+
+
+           // --- Step 3: Create/Update Music Records in Batch ---
+           let createdMusicResult = null;
+           let updatedMusicResult = null;
+           let allMusicOpsSucceeded = true;
+
+           if (musicRecordsToCreate.length > 0) {
+               console.log(`Criando ${musicRecordsToCreate.length} novas músicas...`);
+               createdMusicResult = await batchCreateAirtableRecords('Músicas', musicRecordsToCreate);
+               if (!createdMusicResult || createdMusicResult.length !== musicRecordsToCreate.length) {
+                   allMusicOpsSucceeded = false;
+                   console.error("Falha ao criar uma ou mais músicas novas no lote.");
+                   // Consider more robust error handling/rollback here if critical
+               } else {
+                   console.log(`${createdMusicResult.length} novas músicas criadas.`);
+               }
+           }
+           if (musicRecordsToUpdate.length > 0) {
+               console.log(`Atualizando ${musicRecordsToUpdate.length} músicas existentes...`);
+               updatedMusicResult = await batchUpdateAirtableRecords('Músicas', musicRecordsToUpdate);
+               if (!updatedMusicResult || updatedMusicResult.length !== musicRecordsToUpdate.length) {
+                   allMusicOpsSucceeded = false;
+                   console.error("Falha ao atualizar uma ou mais músicas existentes no lote.");
+                   // Consider more robust error handling/rollback here if critical
+               } else {
                     console.log(`${updatedMusicResult.length} músicas existentes atualizadas.`);
-                }
-            }
+               }
+           }
 
-            // --- Step 4: Final Feedback and Reset ---
-            if (!allMusicOpsSucceeded) {
-                // Use the determined type (Album/EP) in the message
-                alert(`${isAlbum ? 'Álbum' : 'EP'} lançado, mas ocorreu um erro ao criar/atualizar uma ou mais faixas. Verifique o console.`);
-            } else {
-                // Use the determined type (Album/EP) in the message
-                alert(`${isAlbum ? 'Álbum' : 'EP'} lançado com sucesso!`);
-            }
+           // --- Step 4: Final Feedback and Reset ---
+           if (!allMusicOpsSucceeded) {
+               // Use the determined type (Album/EP) in the message
+               alert(`${isAlbum ? 'Álbum' : 'EP'} lançado, mas ocorreu um erro ao criar/atualizar uma ou mais faixas. Verifique o console.`);
+           } else {
+               // Use the determined type (Album/EP) in the message
+               alert(`${isAlbum ? 'Álbum' : 'EP'} lançado com sucesso!`);
+           }
 
-            newAlbumForm?.reset();
-            if (albumReleaseDateInput) {
-                const now = new Date();
-                now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-                now.setSeconds(0); now.setMilliseconds(0);
-                albumReleaseDateInput.value = now.toISOString().slice(0, 16);
-            }
-            initAlbumForm(); // Clears the tracklist editor and reinitializes SortableJS
-            await refreshAllData(); // Refresh local data
+           newAlbumForm?.reset();
+           if (albumReleaseDateInput) {
+               const now = new Date();
+               now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+               now.setSeconds(0); now.setMilliseconds(0);
+               albumReleaseDateInput.value = now.toISOString().slice(0, 16);
+           }
+           initAlbumForm(); // Clears the tracklist editor and reinitializes SortableJS
+           await refreshAllData(); // Refresh local data
 
-        } catch (error) {
+       } catch (error) {
             // Use the determined type (Album/EP) in the error message
-            alert(`Erro ao lançar ${isAlbum ? 'o Álbum' : 'o EP'}: ${error.message}. Verifique o console.`);
-            console.error(`Erro detalhado em handleAlbumSubmit:`, error);
-        } finally {
-            if (submitButton) {
-                submitButton.disabled = false;
-                // Use the determined type (Album/EP) in the button text
-                // Check duration again in finally block as it's the most reliable state
-                const finalDuration = totalDurationSeconds; // Use the value calculated in try block
-                const finalIsAlbum = finalDuration >= (30 * 60);
-                submitButton.textContent = `Lançar ${finalIsAlbum ? 'Álbum' : 'EP'}`;
-            }
-        }
-    }
+           alert(`Erro ao lançar ${isAlbum ? 'o Álbum' : 'o EP'}: ${error.message}. Verifique o console.`);
+           console.error(`Erro detalhado em handleAlbumSubmit:`, error);
+       } finally {
+           if (submitButton) {
+               submitButton.disabled = false;
+               // Use the final calculated duration to set the button text correctly
+               const finalIsAlbum = totalDurationSeconds >= IS_ALBUM_THRESHOLD_SECONDS;
+               submitButton.textContent = `Lançar ${finalIsAlbum ? 'Álbum' : 'EP'}`;
+           }
+       }
+   }
 
 
     // --- FUNÇÕES DE EDIÇÃO/EXCLUSÃO ---
@@ -3122,22 +3191,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <div class="edit-release-info">
                         <span class="edit-release-title">${release.title}</span>
                          <span class="edit-release-artist">
-                              ${release.artist} - ${release.releaseDate ? new Date(release.releaseDate).getFullYear() : 'Sem Data'}
-                              <span class="release-type-badge ${release.type}">${release.type === 'album' ? 'Álbum' : 'Single/EP'}</span>
-                         </span>
+                            ${release.artist} - ${release.releaseDate ? new Date(release.releaseDate).getFullYear() : 'Sem Data'}
+                            <span class="release-type-badge ${release.type}">${release.type === 'album' ? 'Álbum' : 'EP/Single'}</span>
+                        </span>
                     </div>
                     <div class="action-buttons">
                         <button type="button" class="small-btn edit-release-btn"
-                                data-release-id="${release.id}"
-                                data-release-type="${release.type}"
-                                data-release-table="${release.tableName}">
+                            data-release-id="${release.id}"
+                            data-release-type="${release.type}"
+                            data-release-table="${release.tableName}">
                             <i class="fas fa-pencil-alt"></i> Editar
                         </button>
                         <button type="button" class="small-btn delete-release-btn"
-                                data-release-id="${release.id}"
-                                data-release-type="${release.type}"
-                                data-release-table="${release.tableName}"
-                                data-release-title="${release.title}">
+                            data-release-id="${release.id}"
+                            data-release-type="${release.type}"
+                            data-release-table="${release.tableName}"
+                            data-release-title="${release.title}">
                             <i class="fas fa-trash-alt"></i> Apagar
                         </button>
                     </div>
@@ -3157,20 +3226,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Popula campos ocultos
         editReleaseId.value = release.id;
-        editReleaseType.value = release.type;
-        editReleaseTableName.value = release.tableName;
+        editReleaseType.value = release.type; // This now correctly reflects album or single/EP
+        editReleaseTableName.value = release.tableName; // Correct table ('Álbuns' or 'Singles e EPs')
 
         // Popula campos visíveis
         editArtistNameDisplay.textContent = release.artist;
         editReleaseTitle.value = release.title;
         editReleaseCoverUrl.value = release.imageUrl;
 
-        // Popula datetime-local
+        // Popula datetime-local correctly from ISO string
         if (release.releaseDate) {
             try {
                 const releaseDateObj = new Date(release.releaseDate);
-                releaseDateObj.setMinutes(releaseDateObj.getMinutes() - releaseDateObj.getTimezoneOffset());
-                editReleaseDate.value = releaseDateObj.toISOString().slice(0, 16);
+                 // Convert UTC ISO string back to local datetime-local format
+                const localOffset = releaseDateObj.getTimezoneOffset() * 60000;
+                const localISOTime = new Date(releaseDateObj.getTime() - localOffset).toISOString().slice(0, 16);
+                editReleaseDate.value = localISOTime;
             } catch (e) {
                 console.error("Erro ao formatar data/hora para edição:", e, "Data original:", release.releaseDate);
                 editReleaseDate.value = '';
@@ -3180,21 +3251,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // --- LÓGICA DA TRACKLIST ---
-        // Verifica apenas se os elementos do editor existem
+        // Always show and populate for both Albums and Singles/EPs
         if (!editAlbumTracklistEditor || !editTracklistActions) {
-            console.warn("Elementos do editor de tracklist não encontrados.");
-            // (Opcional) Você pode esconder se eles não existirem
+            console.warn("Elementos do editor de tracklist não encontrados no formulário de edição.");
             if (editAlbumTracklistEditor) editAlbumTracklistEditor.classList.add('hidden');
             if (editTracklistActions) editTracklistActions.classList.add('hidden');
         } else {
-            // Mostra e popula para TODOS os tipos (Álbuns e Singles/EPs)
             if (editAlbumTracklistEditor) editAlbumTracklistEditor.classList.remove('hidden');
             if (editTracklistActions) editTracklistActions.classList.remove('hidden');
 
-            // Popula o editor com as faixas do lançamento (seja álbum ou EP)
+            // Populate the editor with the release tracks
             populateTracklistEditor(editAlbumTracklistEditor, release.tracks);
 
-            // Reinicia SortableJS para o editor de edição
+            // Reinitialize SortableJS for the edit editor
             if (editAlbumTracklistEditor && typeof Sortable !== 'undefined') {
                 if (editAlbumTracklistSortable) {
                     editAlbumTracklistSortable.destroy();
@@ -3204,10 +3273,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     handle: '.drag-handle',
                     onEnd: () => updateTrackNumbers(editAlbumTracklistEditor)
                 });
+                 console.log("SortableJS initialized for EDIT album form.");
             }
         }
 
-        // Troca visibilidade
+        // Switch visibility
         editReleaseListContainer?.classList.add('hidden');
         editReleaseForm.classList.remove('hidden');
     }
@@ -3220,13 +3290,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         const recordId = editReleaseId.value;
-        const tableName = editReleaseTableName.value;
-        const releaseType = editReleaseType.value; // 'album' or 'single'
+        const tableName = editReleaseTableName.value; // Correct table name from hidden input
+        const releaseType = editReleaseType.value; // Correct type from hidden input
         const updatedTitle = editReleaseTitle.value.trim();
         const updatedCoverUrl = editReleaseCoverUrl.value.trim();
         const updatedReleaseDateTimeLocal = editReleaseDate.value;
 
-        const originalRelease = (releaseType === 'album' ? db.albums : db.singles).find(r => r.id === recordId);
+        const originalRelease = [...db.albums, ...db.singles].find(r => r.id === recordId);
         if (!originalRelease) {
             alert("Erro: Lançamento original não encontrado nos dados locais.");
             return;
@@ -3241,9 +3311,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         let updatedReleaseDateISO;
         try {
-            // Converte YYYY-MM-DDTHH:MM para YYYY-MM-DD
-            updatedReleaseDateISO = new Date(updatedReleaseDateTimeLocal).toISOString().split('T')[0];
-            if (isNaN(new Date(updatedReleaseDateISO).getTime())) { throw new Error("Data/Hora inválida."); }
+            const localDate = new Date(updatedReleaseDateTimeLocal);
+             if (isNaN(localDate.getTime())) { throw new Error("Data/Hora inválida."); }
+             updatedReleaseDateISO = localDate.toISOString(); // Convert local to UTC ISO
         } catch (e) {
             alert("Erro: Data/Hora de lançamento inválida.");
             return;
@@ -3253,13 +3323,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         saveEditBtn.textContent = 'Salvando...';
 
         try {
-            // --- Etapa 1: Atualiza o registro principal (Título, Capa, Data) ---
+            // --- Step 1: Update the main release record ---
             const titleFieldName = (tableName === 'Álbuns') ? 'Nome do Álbum' : 'Nome do Single/EP';
             const coverFieldName = (tableName === 'Álbuns') ? 'Capa do Álbum' : 'Capa';
             const fieldsToUpdate = {
                 [titleFieldName]: updatedTitle,
                 [coverFieldName]: [{ "url": updatedCoverUrl }],
-                "Data de Lançamento": updatedReleaseDateISO
+                "Data de Lançamento": updatedReleaseDateISO // Use full ISO string
             };
             const updateResult = await updateAirtableRecord(tableName, recordId, fieldsToUpdate);
             if (!updateResult || !updateResult.id) {
@@ -3267,17 +3337,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             console.log("Registro principal do lançamento (ID: " + recordId + ") atualizado.");
 
-            // --- Etapa 2: Processa a Tracklist (Apenas se for 'album' ou 'single' com tracklist editável) ---
-            // Assumindo que tableName 'Singles e EPs' pode conter EPs com tracklist editável
-            if (tableName === 'Álbuns' || tableName === 'Singles e EPs') { // Verifica se é um tipo que PODE ter tracklist
-                const trackItems = editAlbumTracklistEditor.querySelectorAll('.track-list-item-display');
-
-                // Só processa tracklist se o editor estiver visível (ou seja, não era um single simples)
-                if (!editAlbumTracklistEditor.classList.contains('hidden')) {
-
-                    const musicRecordsToCreate = []; // Array de { fields: {...} }
-                    const musicRecordsToUpdate = []; // Array de { id: "rec...", fields: {...} }
-                    const finalTrackIdsInEditor = new Set(); // Mantém o rastro de todos os IDs de músicas no editor
+            // --- Step 2: Process Tracklist ---
+            // Process tracklist if the editor is visible (meaning it's an album or EP)
+             if (tableName === 'Álbuns' || tableName === 'Singles e EPs') { // Check table name
+                 const trackItems = editAlbumTracklistEditor.querySelectorAll('.track-list-item-display');
+                 if (!editAlbumTracklistEditor.classList.contains('hidden')) { // Check visibility
+                    console.log(`Processing tracklist for ${tableName} ID ${recordId}...`);
+                    const musicRecordsToCreate = []; // Array of { fields: {...} }
+                    const musicRecordsToUpdate = []; // Array of { id: "rec...", fields: {...} }
+                    const finalTrackIdsInEditor = new Set(); // Keep track of all music IDs in the editor
 
                     for (let i = 0; i < trackItems.length; i++) {
                         const item = trackItems[i];
@@ -3289,30 +3357,30 @@ document.addEventListener('DOMContentLoaded', async () => {
                         let feats = [];
                         try { feats = JSON.parse(item.dataset.feats || '[]'); } catch (e) {}
 
-                        if (!name || (durationSec === 0 && !existingSongId)) { // Duração obrigatória só para novas faixas
+                        if (!name || (durationSec === 0 && !existingSongId) ) { // Duration mandatory only for new tracks
                             throw new Error(`Dados inválidos na Faixa ${i + 1} do editor.`);
                         }
 
-                        const linkField = tableName === 'Álbuns' ? 'Álbuns' : 'Singles e EPs';
+                         const linkField = tableName === 'Álbuns' ? 'Álbuns' : 'Singles e EPs';
 
                         if (existingSongId) {
-                            // --- Faixa EXISTENTE ---
+                            // --- Existing Track ---
                             finalTrackIdsInEditor.add(existingSongId);
                             const originalSong = db.songs.find(s => s.id === existingSongId);
 
                             const existingLinks = (tableName === 'Álbuns' ? originalSong?.albumIds : originalSong?.singleIds) || [];
-                            const updatedLinks = [...new Set([...existingLinks, recordId])];
+                            const updatedLinks = [...new Set([...existingLinks, recordId])]; // Ensure link exists
 
                             musicRecordsToUpdate.push({
                                 id: existingSongId,
                                 fields: {
                                     "Nº da Faixa": i + 1,
                                     "Tipo de Faixa": type,
-                                    [linkField]: updatedLinks // Garante vínculo
+                                    [linkField]: updatedLinks // Ensure link is present
                                 }
                             });
                         } else {
-                            // --- Faixa NOVA ---
+                            // --- New Track ---
                             let finalTrackName = name;
                             let finalArtistIds = [artistId];
                             let collaborationType = null;
@@ -3331,16 +3399,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 "Duração": durationSec,
                                 "Nº da Faixa": i + 1,
                                 "Tipo de Faixa": type,
-                                [linkField]: [recordId], // Vincula a este lançamento
+                                [linkField]: [recordId], // Link to this release
                                 ...(collaborationType && { "Tipo de Colaboração": collaborationType })
                             });
                         }
-                    } // Fim do loop da tracklist
+                    } // End tracklist loop
 
-                    // --- Etapa 3: Criar Novas músicas ---
+                    // --- Step 3: Create New Music Records ---
                     if (musicRecordsToCreate.length > 0) {
-                        console.log(`Criando ${musicRecordsToCreate.length} novas músicas...`);
-                        const createResult = await batchCreateAirtableRecords('Músicas', musicRecordsToCreate.map(fields => fields));
+                        console.log(`Creating ${musicRecordsToCreate.length} new music records...`);
+                        const createResult = await batchCreateAirtableRecords('Músicas', musicRecordsToCreate);
                         if (!createResult || createResult.length !== musicRecordsToCreate.length) {
                             throw new Error("Falha ao criar uma ou mais faixas novas.");
                         }
@@ -3348,18 +3416,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                         console.log("Novas músicas criadas com sucesso.");
                     }
 
-                    // --- Etapa 4: Encontrar e DESVINCULAR faixas removidas ---
+                    // --- Step 4: Find and Unlink Removed Tracks ---
                     const tracksToUnlinkIds = [...originalTrackIds].filter(id => !finalTrackIdsInEditor.has(id));
 
                     if (tracksToUnlinkIds.length > 0) {
-                        console.log(`Desvinculando ${tracksToUnlinkIds.length} músicas removidas...`);
+                        console.log(`Unlinking ${tracksToUnlinkIds.length} removed music records...`);
                         const unlinkPayload = [];
                         const linkField = tableName === 'Álbuns' ? 'Álbuns' : 'Singles e EPs';
 
                         for (const trackId of tracksToUnlinkIds) {
                             const originalSong = db.songs.find(s => s.id === trackId);
                             const existingLinks = (tableName === 'Álbuns' ? originalSong?.albumIds : originalSong?.singleIds) || [];
-                            const updatedLinks = existingLinks.filter(linkId => linkId !== recordId);
+                            const updatedLinks = existingLinks.filter(linkId => linkId !== recordId); // Remove link to this release
 
                             unlinkPayload.push({
                                 id: trackId,
@@ -3369,29 +3437,30 @@ document.addEventListener('DOMContentLoaded', async () => {
                         const unlinkResult = await batchUpdateAirtableRecords('Músicas', unlinkPayload);
                         if (!unlinkResult || unlinkResult.length !== unlinkPayload.length) {
                             console.warn("Falha ao desvincular uma ou mais músicas removidas.");
-                            // Não lança erro fatal, apenas aviso
+                            // Non-fatal warning
                         } else {
                             console.log("Músicas antigas desvinculadas com sucesso.");
                         }
                     }
 
-                    // --- Etapa 5: Atualizar músicas EXISTENTES (vínculos, nº da faixa, tipo) ---
+                    // --- Step 5: Update Existing Music Records (order, type, link) ---
                     if (musicRecordsToUpdate.length > 0) {
-                        console.log(`Atualizando ${musicRecordsToUpdate.length} músicas existentes...`);
+                        console.log(`Updating ${musicRecordsToUpdate.length} existing music records...`);
                         const updateExistingResult = await batchUpdateAirtableRecords('Músicas', musicRecordsToUpdate);
                         if (!updateExistingResult || updateExistingResult.length !== musicRecordsToUpdate.length) {
                             throw new Error("Falha ao atualizar faixas existentes (mudança de link/ordem).");
                         }
                         console.log("Músicas existentes atualizadas com sucesso.");
                     }
-                } // Fim do if (editor de tracklist estava visível)
-            } // Fim do if (releaseType === 'album' ou 'Singles e EPs')
+                } // End if tracklist editor was visible
+            } // End if album or single/EP table
 
-            // --- Etapa 6: Sucesso ---
+
+            // --- Step 6: Success ---
             alert("Lançamento atualizado com sucesso!");
             editReleaseForm.classList.add('hidden');
             editReleaseListContainer?.classList.remove('hidden');
-            await refreshAllData();
+            await refreshAllData(); // Refresh data to show changes
 
         } catch (error) {
             alert(`Erro ao salvar alterações: ${error.message}. Verifique o console.`);
@@ -3470,16 +3539,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
                     const albumLinksCount = (song.albumIds || []).length;
                     const singleLinksCount = (song.singleIds || []).length;
-                    const totalLinks = albumLinksCount + singleLinksCount;
+                    // Check if the current release is the *only* link for this song
+                     const isOnlyLink = (tableName === 'Álbuns' && albumLinksCount === 1 && singleLinksCount === 0 && song.albumIds[0] === recordId) ||
+                                      (tableName === 'Singles e EPs' && singleLinksCount === 1 && albumLinksCount === 0 && song.singleIds[0] === recordId);
 
-                    if (totalLinks > 1) {
+
+                    if (!isOnlyLink) { // If linked elsewhere, just unlink
                         console.log(`Desvinculando música ${trackId} do lançamento ${recordId} em ${tableName}`);
                         const isAlbumTable = tableName === 'Álbuns';
                         const linkField = isAlbumTable ? 'Álbuns' : 'Singles e EPs';
                         const currentLinks = (isAlbumTable ? song.albumIds : song.singleIds) || [];
                         const updatedLinks = currentLinks.filter(linkId => linkId !== recordId);
                         updates.push({ id: trackId, fields: { [linkField]: updatedLinks } });
-                    } else {
+                    } else { // If this is the only link, delete the song
                         console.log(`Marcando música ${trackId} para exclusão (único vínculo).`);
                         deletes.push(trackId);
                     }
@@ -3528,7 +3600,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch (error) {
             alert(`Erro ao apagar o lançamento: ${error.message}. Verifique o console.`);
             console.error("Erro detalhado em handleDeleteRelease:", error);
-            closeDeleteConfirmModal();
+            closeDeleteConfirmModal(); // Close modal even on error
         } finally {
             confirmDeleteBtn.disabled = false;
             confirmDeleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i> Sim, Apagar';
@@ -3551,16 +3623,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             const songElements = parentListContainer.querySelectorAll('.song-row[data-song-id], .track-row[data-song-id].available, .chart-item[data-song-id]');
             currentQueue = Array.from(songElements)
                 .map(el => db.songs.find(s => s.id === el.dataset.songId))
-                .filter(Boolean);
+                .filter(Boolean); // Filter out potential nulls if song not found
             console.log(`Fila criada a partir do container: ${currentQueue.length} músicas.`);
         } else {
+            // Fallback: Just play the clicked song if no context list is found
             currentQueue = [song];
-            console.log("Fila criada com apenas a música selecionada.");
+            console.log("Fila criada com apenas a música selecionada (sem container pai).");
         }
+
 
         currentQueueIndex = currentQueue.findIndex(s => s.id === songId);
 
         if (currentQueueIndex === -1) {
+            // This should ideally not happen if the song was found, but as a safeguard:
             console.warn("Música clicada não encontrada na fila gerada. Tocando apenas ela.");
             currentQueue = [song];
             currentQueueIndex = 0;
@@ -3595,16 +3670,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (playerSongTitle) playerSongTitle.textContent = song.title;
         if (playerArtistName) playerArtistName.textContent = formatArtistString(song.artistIds, song.collabType);
 
+        // Find the primary release (album or single/EP) linked via albumId for display
         const parentRelease = [...db.albums, ...db.singles].find(r => r.id === song.albumId);
         if (parentRelease) {
             if (playerCoverArt) playerCoverArt.src = parentRelease.imageUrl;
             if (playerAlbumTitle) playerAlbumTitle.textContent = parentRelease.title;
         } else {
-            if (playerCoverArt) playerCoverArt.src = 'https://i.imgur.com/AD3MbBi.png';
+             // Fallback if no albumId link (should be rare) or release not found
+            if (playerCoverArt) playerCoverArt.src = song.cover || 'https://i.imgur.com/AD3MbBi.png'; // Use song's own cover or default
             if (playerAlbumTitle) playerAlbumTitle.textContent = 'Single Avulso';
         }
 
-        const durationSeconds = song.durationSeconds || 180;
+
+        const durationSeconds = song.durationSeconds || 0; // Default to 0 if undefined
 
         if (playerSeekBar) {
             playerSeekBar.value = 0;
@@ -3613,25 +3691,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (playerCurrentTime) playerCurrentTime.textContent = formatTime(0);
         if (playerTotalTime) playerTotalTime.textContent = formatTime(durationSeconds);
 
+        // Update play/pause button based on current state (important if loading while paused)
         if (isPlaying) {
-            if (playerPlayPauseBtn) playerPlayPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
+             if(playerPlayPauseBtn) playerPlayPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
         } else {
-            if (playerPlayPauseBtn) playerPlayPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
+             if(playerPlayPauseBtn) playerPlayPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
         }
-        if (playerCurrentTime) playerCurrentTime.textContent = formatTime(0);
+        // Always reset current time display on load
+         if (playerCurrentTime) playerCurrentTime.textContent = formatTime(0);
     }
+
 
     function playAudio() {
         if (!currentSong) return;
         isPlaying = true;
         if (playerPlayPauseBtn) playerPlayPauseBtn.innerHTML = '<i class="fas fa-pause"></i>';
         console.log("Simulando Play:", currentSong.title);
+         startSimulationTimer(); // Ensure timer starts/resumes
     }
 
     function pauseAudio() {
         isPlaying = false;
         if (playerPlayPauseBtn) playerPlayPauseBtn.innerHTML = '<i class="fas fa-play"></i>';
         console.log("Simulando Pause:", currentSong?.title);
+        stopSimulationTimer(); // Stop timer on pause
     }
 
     function togglePlay() {
@@ -3653,7 +3736,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.log("PlayNext: Modo Repeat One, reiniciando música atual.");
             if (playerSeekBar) playerSeekBar.value = 0;
             if (playerCurrentTime) playerCurrentTime.textContent = formatTime(0);
-            playAudio();
+            playAudio(); // Restart playback
             return;
         }
 
@@ -3676,13 +3759,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.log("PlayNext: Fim da fila, modo Repeat All, voltando para o início.");
                 currentQueueIndex = 0;
             } else {
-                console.log("PlayNext: Fim da fila, sem modo de repetição.");
-                currentQueueIndex = currentQueue.length - 1;
-                const lastSong = currentQueue[currentQueueIndex];
-                if (lastSong) loadSong(lastSong);
-                pauseAudio();
-                if (playerSeekBar) playerSeekBar.value = playerSeekBar.max;
-                if (playerCurrentTime) playerCurrentTime.textContent = formatTime(playerSeekBar.max || 0);
+                console.log("PlayNext: Fim da fila, sem modo de repetição. Parando.");
+                // Option 1: Stop at the end
+                // currentQueueIndex = currentQueue.length - 1; // Stay on last index
+                // const lastSong = currentQueue[currentQueueIndex];
+                // if(lastSong) loadSong(lastSong); // Reload last song visuals
+                // pauseAudio();
+                // if(playerSeekBar) playerSeekBar.value = playerSeekBar.max; // Set seeker to end
+                // if(playerCurrentTime) playerCurrentTime.textContent = formatTime(playerSeekBar.max || 0);
+
+                 // Option 2: Go back to first song but paused
+                 currentQueueIndex = 0;
+                 const firstSong = currentQueue[currentQueueIndex];
+                 if(firstSong) loadSong(firstSong);
+                 pauseAudio();
+                 if (playerSeekBar) playerSeekBar.value = 0;
+                 if (playerCurrentTime) playerCurrentTime.textContent = formatTime(0);
+
                 return;
             }
         }
@@ -3690,14 +3783,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         const nextSong = currentQueue[currentQueueIndex];
         if (nextSong) {
             loadSong(nextSong);
-            if (isPlaying) {
-                playAudio();
+            if (isPlaying) { // If it was playing before, start the new song
+                 playAudio();
             } else {
-                pauseAudio();
+                 // If it was paused, just load the next song visuals but stay paused
+                 // (loadSong already updates the button icon)
             }
+
         } else {
             console.error(`PlayNext: Música não encontrada no índice ${currentQueueIndex}`);
-            pauseAudio();
+            pauseAudio(); // Stop if something went wrong
         }
     }
 
@@ -3709,15 +3804,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.log("PlayPrevious: Iniciando...");
 
         const currentTime = playerSeekBar ? parseFloat(playerSeekBar.value) : 0;
-        if (currentTime > 3) {
-            console.log("PlayPrevious: Reiniciando música atual (tocada por > 3s).");
+        // If played for more than 3 seconds OR if it's the very first song in non-repeat queue, restart current song
+        if (currentTime > 3 || (currentQueueIndex === 0 && repeatMode !== 'all' && !isShuffle) ) {
+            console.log("PlayPrevious: Reiniciando música atual.");
             if (playerSeekBar) playerSeekBar.value = 0;
             if (playerCurrentTime) playerCurrentTime.textContent = formatTime(0);
-            if (isPlaying) playAudio();
+            if (isPlaying) playAudio(); // Continue playing if it was playing
             return;
         }
 
         if (isShuffle) {
+            // In shuffle, 'previous' usually goes to a random *different* song
             let randomIndex = currentQueueIndex;
             if (currentQueue.length > 1) {
                 do {
@@ -3728,6 +3825,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.log(`PlayPrevious: Modo Shuffle, pulando para índice aleatório ${currentQueueIndex}`);
 
         } else {
+            // Normal mode, go to the actual previous index
             currentQueueIndex--;
             console.log(`PlayPrevious: Modo Normal, decrementando índice para ${currentQueueIndex}`);
         }
@@ -3737,32 +3835,36 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.log("PlayPrevious: Início da fila, modo Repeat All, pulando para o fim.");
                 currentQueueIndex = currentQueue.length - 1;
             } else {
+                // Already handled the restart case above, this case (going < 0 without repeat)
+                // effectively means restart the first song.
                 console.log("PlayPrevious: Início da fila, sem modo de repetição, reiniciando primeira música.");
                 currentQueueIndex = 0;
-                if (playerSeekBar) playerSeekBar.value = 0;
-                if (playerCurrentTime) playerCurrentTime.textContent = formatTime(0);
-                const firstSong = currentQueue[currentQueueIndex];
-                if (firstSong) {
-                    loadSong(firstSong);
-                    if (isPlaying) playAudio(); else pauseAudio();
-                }
-                return;
+                 if (playerSeekBar) playerSeekBar.value = 0;
+                 if (playerCurrentTime) playerCurrentTime.textContent = formatTime(0);
+                 const firstSong = currentQueue[currentQueueIndex];
+                 if (firstSong) {
+                     loadSong(firstSong);
+                     if(isPlaying) playAudio(); // Continue playing if it was playing
+                     // If paused, stay paused but show first song
+                 }
+                 return; // Prevent further execution this time
             }
         }
 
         const prevSong = currentQueue[currentQueueIndex];
         if (prevSong) {
             loadSong(prevSong);
-            if (isPlaying) {
-                playAudio();
+             if (isPlaying) { // If it was playing before, start the new song
+                 playAudio();
             } else {
-                pauseAudio();
+                 // If it was paused, just load the previous song visuals but stay paused
             }
         } else {
             console.error(`PlayPrevious: Música não encontrada no índice ${currentQueueIndex}`);
-            pauseAudio();
+            pauseAudio(); // Stop if something went wrong
         }
     }
+
 
     function toggleShuffle() {
         isShuffle = !isShuffle;
@@ -3803,27 +3905,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     let simulationInterval = null;
 
     function startSimulationTimer() {
-        stopSimulationTimer();
+        stopSimulationTimer(); // Clear any existing interval first
+        console.log("Starting simulation timer.");
         simulationInterval = setInterval(() => {
             if (isPlaying && playerSeekBar && currentSong) {
                 let currentValue = parseFloat(playerSeekBar.value);
                 const maxValue = parseFloat(playerSeekBar.max);
+
+                if (maxValue <= 0) return; // Avoid issues if max is 0 or less
 
                 if (currentValue < maxValue) {
                     currentValue += 1;
                     playerSeekBar.value = currentValue;
                     if (playerCurrentTime) playerCurrentTime.textContent = formatTime(currentValue);
                 } else {
+                    // Song finished
                     console.log(`Simulação: ${currentSong.title} terminou.`);
-                    if (repeatMode === 'one') {
-                        console.log("Simulação: Repeat One ativado, reiniciando.");
-                        playerSeekBar.value = 0;
-                        if (playerCurrentTime) playerCurrentTime.textContent = formatTime(0);
-                        playAudio();
-                    } else {
-                        console.log("Simulação: Chamando playNext().");
-                        playNext();
-                    }
+                     // No need to call playNext/repeat here, as the condition check handles it
+                     playNext(); // Let playNext handle repeat modes
                 }
             }
         }, 1000);
@@ -3831,6 +3930,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function stopSimulationTimer() {
         if (simulationInterval) {
+            console.log("Stopping simulation timer.");
             clearInterval(simulationInterval);
             simulationInterval = null;
         }
@@ -3844,105 +3944,130 @@ document.addEventListener('DOMContentLoaded', async () => {
         playerShuffleBtn?.addEventListener('click', toggleShuffle);
         playerRepeatBtn?.addEventListener('click', toggleRepeat);
 
-        playerSeekBar?.addEventListener('input', () => {
+        playerSeekBar?.addEventListener('input', () => { // Update time display WHILE dragging
             if (playerCurrentTime && playerSeekBar) {
                 playerCurrentTime.textContent = formatTime(playerSeekBar.value);
             }
+             stopSimulationTimer(); // Temporarily stop timer while scrubbing
         });
-        playerSeekBar?.addEventListener('change', () => {
-            console.log(`Simulação: Usuário ajustou para ${formatTime(playerSeekBar.value)}`);
+        playerSeekBar?.addEventListener('change', () => { // Update simulation AFTER dragging
+            const seekTime = playerSeekBar ? parseFloat(playerSeekBar.value) : 0;
+            console.log(`Simulação: Usuário ajustou para ${formatTime(seekTime)}`);
+             if (playerCurrentTime) playerCurrentTime.textContent = formatTime(seekTime); // Ensure final value is displayed
             if (isPlaying) {
-                playAudio();
+                 startSimulationTimer(); // Restart timer only if playing
             }
         });
 
-        startSimulationTimer();
+         // Initial call removed - timer starts only when playAudio is called
+         // startSimulationTimer();
         console.log("Listeners do Player inicializados.");
     }
 
 
 
     // --- 6. INICIALIZAÇÃO GERAL ---
+     // Named handler for body clicks
+     function bodyClickHandler(event) {
+        console.log("Body click detected. Target:", event.target);
+
+        // Artist Navigation
+        const artistCard = event.target.closest('.artist-card[data-artist-name]');
+        const artistLink = event.target.closest('.artist-link[data-artist-name]');
+        if (artistCard) {
+            console.log("Artist card clicked:", artistCard.dataset.artistName);
+            openArtistDetail(artistCard.dataset.artistName);
+            return;
+        }
+        if (artistLink) {
+            console.log("Artist link clicked:", artistLink.dataset.artistName);
+            event.preventDefault();
+            openArtistDetail(artistLink.dataset.artistName);
+            return;
+        }
+
+        // Album/Single Navigation
+        const albumCard = event.target.closest('[data-album-id]');
+        if (albumCard) {
+            console.log("Album card potentially clicked:", albumCard.dataset.albumId);
+            // Ignore clicks on action buttons within the edit list
+            if (event.target.closest('.action-buttons') || albumCard.closest('#editReleaseList')) {
+                 console.log("Ignoring click inside edit list actions.");
+                 return;
+            }
+            console.log("Navigating to album detail:", albumCard.dataset.albumId);
+            openAlbumDetail(albumCard.dataset.albumId);
+            return;
+        }
+
+        // Song Playback (Popular Songs, Tracklists, Charts)
+        const songRow = event.target.closest('.song-row[data-song-id], .track-row[data-song-id].available, .chart-item[data-song-id]');
+        if (songRow) {
+             console.log("Song row potentially clicked:", songRow.dataset.songId);
+             // Ignore clicks on action buttons within studio tracklist editors
+             if (event.target.closest('.track-actions button') || songRow.closest('.studio-form-content')) {
+                 console.log("Ignoring click inside studio track actions.");
+                 return;
+             }
+             console.log("Opening player for song:", songRow.dataset.songId);
+             openPlayer(songRow.dataset.songId, songRow);
+             return;
+        }
+
+        // Discography "See All" Links
+        const discogLink = event.target.closest('.discography-link[data-discog-type]');
+        if (discogLink) {
+             console.log("Discography link clicked:", discogLink.dataset.discogType);
+             event.preventDefault();
+             openDiscographyDetail(discogLink.dataset.discogType);
+             return;
+        }
+
+        // Back Buttons
+        const backButton = event.target.closest('[data-action="back"]');
+        if (backButton) {
+            console.log("Back button clicked! Calling handleBack..."); // Log clearly
+            event.preventDefault();
+            handleBack();
+            return;
+        }
+
+        // Refresh Buttons
+        const refreshButton = event.target.closest('[data-action="refresh"]');
+        if(refreshButton){
+            console.log("Refresh button clicked.");
+            event.preventDefault();
+            const icon = refreshButton.querySelector('i');
+            if(icon) icon.classList.add('fa-spin');
+            refreshButton.disabled = true;
+
+            console.log("Manual refresh initiated...");
+            refreshAllData().finally(() => {
+                if(icon) icon.classList.remove('fa-spin');
+                refreshButton.disabled = false;
+                console.log("Manual refresh complete.");
+            });
+            return;
+        }
+
+        console.log("Body click detected, but no specific action matched.");
+     }
+
     function initializeBodyClickListener() {
-        document.body.addEventListener('click', (event) => {
-            // Artist Navigation
-            const artistCard = event.target.closest('.artist-card[data-artist-name]');
-            const artistLink = event.target.closest('.artist-link[data-artist-name]');
-            if (artistCard) {
-                openArtistDetail(artistCard.dataset.artistName);
-                return;
-            }
-            if (artistLink) {
-                event.preventDefault();
-                openArtistDetail(artistLink.dataset.artistName);
-                return;
-            }
-
-            // Album/Single Navigation
-            const albumCard = event.target.closest('[data-album-id]');
-            if (albumCard) {
-                // Ignora cliques em botões dentro da lista de edição
-                if (event.target.closest('.action-buttons') || albumCard.closest('#editReleaseList')) {
-                    return;
-                }
-                openAlbumDetail(albumCard.dataset.albumId);
-                return;
-            }
-
-            // Song Playback (Músicas Populares, Tracklists, Charts)
-            const songRow = event.target.closest('.song-row[data-song-id], .track-row[data-song-id].available, .chart-item[data-song-id]');
-            if (songRow) {
-                // Ignora cliques em botões dentro da tracklist do estúdio
-                if (event.target.closest('.track-actions button') || songRow.closest('.studio-form-content')) {
-                    return;
-                }
-                openPlayer(songRow.dataset.songId, songRow);
-                return;
-            }
-
-            // Discography "Ver Mais" Links (na página do artista)
-            const discogLink = event.target.closest('.discography-link[data-discog-type]');
-            if (discogLink) {
-                event.preventDefault();
-                openDiscographyDetail(discogLink.dataset.discogType);
-                return;
-            }
-
-            // Botões "Voltar" (em páginas de detalhes)
-            const backButton = event.target.closest('[data-action="back"]');
-            if (backButton) {
-                console.log("Back button clicked!"); // <--- ADICIONE ESTA LINHA
-                event.preventDefault();
-                handleBack();
-                return;
-            }
-
-            // Botão "Atualizar"
-            const refreshButton = event.target.closest('[data-action="refresh"]');
-            if (refreshButton) {
-                event.preventDefault();
-                const icon = refreshButton.querySelector('i');
-                if (icon) icon.classList.add('fa-spin');
-                refreshButton.disabled = true;
-
-                console.log("Atualização manual iniciada...");
-                refreshAllData().finally(() => {
-                    if (icon) icon.classList.remove('fa-spin');
-                    refreshButton.disabled = false;
-                    console.log("Atualização manual concluída.");
-                });
-                return;
-            }
-
-        });
-        console.log("Listener de clique principal (delegação) atribuído ao body.");
+        console.log("Attempting to attach body click listener...");
+        // Remove potentially existing listener to prevent duplicates during hot reloads/debugging
+        document.body.removeEventListener('click', bodyClickHandler);
+        // Add the single named handler
+        document.body.addEventListener('click', bodyClickHandler);
+        console.log("Body click listener attached.");
     }
+
 
     function attachNavigationListeners() {
         console.log("Atribuindo listeners de navegação (abas, busca)...");
         const navButtons = document.querySelectorAll('.nav-tab, .bottom-nav-item');
         navButtons.forEach(button => {
-            // Remove listener antigo para evitar duplicatas em caso de re-call
+            // Remove listener antigo para evitar duplicatas em caso de re-call (e.g., after refreshAllData)
             button.removeEventListener('click', switchTab);
             button.addEventListener('click', switchTab);
         });
@@ -3990,15 +4115,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             renderChart('album');
         } catch (renderError) {
             console.error("Erro durante a renderização inicial:", renderError);
-            // Não para, mas a UI pode estar incompleta
+            // Non-fatal, UI might be incomplete
         }
 
         // 5. Configurar Listeners de Eventos
         try {
-            attachNavigationListeners();     // Abas de navegação, busca
-            initializeBodyClickListener(); // Delegação de cliques (cards, links)
-            initializeStudio();            // Listeners específicos do estúdio
-            initializePlayerListeners();   // Listeners do player de música
+            attachNavigationListeners();     // Nav tabs, search
+            initializeBodyClickListener(); // Click delegation (cards, links, back buttons etc.)
+            initializeStudio();            // Studio specific listeners
+            initializePlayerListeners();   // Music player listeners
         } catch (listenerError) {
             console.error("Erro ao configurar listeners:", listenerError);
         }
