@@ -772,7 +772,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     const handleBack = () => {
-        console.log("handleBack triggered. Current history before pop:", JSON.stringify(viewHistory));
+        console.log("handleBack triggered. History before pop:", JSON.stringify(viewHistory));
         const currentViewElement = document.querySelector('.page-view:not(.hidden)');
         const currentViewId = currentViewElement ? currentViewElement.id : 'unknown';
         console.log(`Currently in view: ${currentViewId}`);
@@ -783,33 +783,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             albumCountdownInterval = null;
         }
 
-        // Remove the current view from history IF it's the last one added
-        if (viewHistory.length > 0 && viewHistory[viewHistory.length - 1] === currentViewId) {
-             const poppedView = viewHistory.pop();
-             console.log(`Popped current view (${poppedView}) from history.`);
-        } else if (viewHistory.length > 0) {
-            console.warn(`Current view (${currentViewId}) doesn't match last history entry (${viewHistory[viewHistory.length - 1]}). Popping last entry anyway.`);
-             viewHistory.pop(); // Still pop the last one as intended navigation target
+        // Pop only ONCE to remove the current view
+        if (viewHistory.length > 0) {
+            const poppedView = viewHistory.pop(); // Removes the current view ID from the stack
+            console.log(`Popped current view (${poppedView}). History now: ${JSON.stringify(viewHistory)}`);
         } else {
-             console.log("History is empty, cannot pop current view.");
+             console.log("History was empty, cannot pop. Going to mainView.");
+             switchView('mainView'); // Fallback if history is somehow empty
+             return;
         }
 
 
-        // Determine the previous view (or fallback to main)
-        const previousViewId = viewHistory.pop() || 'mainView'; // Pop again to get the actual previous view
-        console.log(`Determined previous view ID: ${previousViewId}. History after second pop:`, JSON.stringify(viewHistory));
+        // Determine the previous view ID by PEEKING at the new last element
+        const previousViewId = viewHistory.length > 0 ? viewHistory[viewHistory.length - 1] : 'mainView';
+        console.log(`Determined previous view ID (peek): ${previousViewId}.`);
 
-        // IMPORTANT: Push the target view back onto history *after* switching
-        // This allows correct forward/back navigation if the user goes back then forward immediately
-        // switchView will handle not double-pushing if previousViewId === last element
+        // We DON'T pop the target view ID here.
 
-        switchView(previousViewId);
-
-         // We don't manually push previousViewId back here. switchView handles history.
-         // If previousViewId is mainView, switchView clears history.
-         // If previousViewId is a detail view, switchView will push it correctly.
+        switchView(previousViewId); // Switch to the view that is now the last in history
     };
-
 
     const renderArtistsGrid = (containerId, artists) => {
         const container = document.getElementById(containerId);
