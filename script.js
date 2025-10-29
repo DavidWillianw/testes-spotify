@@ -3951,8 +3951,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
     // --- 6. INICIALIZAÇÃO GERAL ---
-     // Named handler for body clicks
-    // Named handler for body clicks
+   // Named handler for body clicks
     function bodyClickHandler(event) {
         // Log the actual element clicked for precise debugging
         console.log("Body click detected. Target element:", event.target);
@@ -4042,10 +4041,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // If no specific action matched above
         console.log("Body click detected, but no specific interactive action matched.");
-    }
-
-        console.log("Body click detected, but no specific action matched.");
-     }
+    } // <<<<<<<< This is the CORRECT closing brace for the function
+    //  console.log("Body click detected, but no specific action matched."); << REMOVE THIS LINE
+    // } << REMOVE THIS EXTRA BRACE
 
     function initializeBodyClickListener() {
         console.log("Attempting to attach body click listener...");
