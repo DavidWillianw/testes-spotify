@@ -12,7 +12,22 @@
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
-
+.studio-form-group.checkbox-group input[type="checkbox"] {
+    /* Traz a caixinha de volta */
+    appearance: auto; 
+    
+    /* Define um tamanho normal */
+    width: auto;
+    
+    /* Remove o padding de campo de texto */
+    padding: 0;
+    
+    /* Adiciona a margem que você tinha no seu estilo inline */
+    margin-right: 8px;
+    
+    /* Opcional: Alinha o checkbox com o texto do label */
+    vertical-align: middle; 
+}
 body {
   font-family: "Montserrat", sans-serif;
   background-color: var(--background-primary);
