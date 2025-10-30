@@ -320,7 +320,28 @@ document.addEventListener('DOMContentLoaded', async () => {
                 artistsMapById.set(artist.id, artist.name);
                 return artist;
             });
+document.body.addEventListener('click', function(event) {
+    
+    // Check for the tab button
+    const tabButton = event.target.closest('.bottom-nav-item');
+    if (tabButton) {
+        const tabId = tabButton.dataset.tab;
+        console.log('Switching to tab:', tabId);
+        // Call your tab switching function here
+        return; // Stop running
+    }
 
+    // Check for the checkbox
+    if (event.target.id === 'albumIsDeluxe') {
+        console.log('Deluxe checkbox clicked');
+        // Call your checkbox function here
+        return; // Stop running
+    }
+    
+    // If nothing else matched, log it
+    console.log('Body click detected, but no specific interactive action matched.'); 
+    // This is your new "catch-all" log (line 3022)
+});
             const formatReleases = (records, isAlbumTable) => {
                 if (!records) return [];
                 return records.map(record => {
