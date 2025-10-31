@@ -398,7 +398,7 @@ name: record.fields.Nome,
                 albums: formattedAlbums,
                 singles: formattedSingles,
                 players: formattedPlayers,
-section       musicas: Array.from(musicasMap.values()) // Convert map values back to array
+                   musicas: Array.from(musicasMap.values()) // Convert map values back to array
             };
         } catch (error) {
             console.error("Falha GERAL ao carregar dados do Airtable:", error);
