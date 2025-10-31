@@ -272,8 +272,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function loadAllData() {
         // --- INÍCIO DA CORREÇÃO ---
         // Adiciona um parâmetro de ordenação para estabilizar a paginação (offset)
-        const sortParam = "?sort%5B0%5D%5Bfield%5D=Data%20de%20L%C3%A7amento&sort%5B0%5D%5Bdirection%5D=asc"; 
-const sortParamAdd = "&sort%5B0%5D%5Bfield%5D=Data%20de%20L%C3%A7amento&sort%5B0%5D%5Bdirection%5D=asc";
+       const sortParam = "?sort%5B0%5D%5Bfield%5D=Data%20de%20Lan%C3%A7amento&sort%5B0%5D%5Bdirection%5D=asc";
+       const sortParamAdd = "&sort%5B0%5D%5Bfield%5D=Data%20de%20Lan%C3%A7amento&sort%5B0%5D%5Bdirection%5D=asc";
 
         // A 'artistsURL' já tem um filtro, então usamos '&'
         const artistsURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Artists?filterByFormula=%7BArtista%20Principal%7D%3D1${sortParamAdd}`;
