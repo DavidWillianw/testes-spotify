@@ -12,16 +12,22 @@
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
-
-/* Fix para Checkbox no Estúdio */
 .studio-form-group.checkbox-group input[type="checkbox"] {
+    /* Traz a caixinha de volta */
     appearance: auto; 
+    
+    /* Define um tamanho normal */
     width: auto;
+    
+    /* Remove o padding de campo de texto */
     padding: 0;
+    
+    /* Adiciona a margem que você tinha no seu estilo inline */
     margin-right: 8px;
+    
+    /* Opcional: Alinha o checkbox com o texto do label */
     vertical-align: middle; 
 }
-
 body {
   font-family: "Montserrat", sans-serif;
   background-color: var(--background-primary);
@@ -32,7 +38,6 @@ body {
 .hidden { display: none !important; }
 
 .main-container { padding-bottom: 90px; }
-
 /* ========================================================== */
 /* ========= ESTILOS COMPLETOS PARA EDITAR/APAGAR ========= */
 /* ========================================================== */
@@ -43,10 +48,10 @@ body {
 }
 
 /* Filtro Dropdown */
-#editReleaseSection .studio-form-group {
+#editReleaseSection .studio-form-group { /* Garante espaçamento correto para o grupo do filtro */
     margin-bottom: 20px;
 }
-#editReleaseSection label[for="editArtistFilterSelect"] {
+#editReleaseSection label[for="editArtistFilterSelect"] { /* Estilo do label do filtro */
     display: block;
     font-size: 12px;
     font-weight: 700;
@@ -63,12 +68,12 @@ body {
     border-radius: 6px;
     font-size: 14px;
     font-family: "Montserrat", sans-serif;
-    appearance: none;
+    appearance: none; /* Remove default browser styling */
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23b3b3b3' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 14px center;
     background-size: 16px 16px;
-    padding-right: 40px;
+    padding-right: 40px; /* Space for the arrow */
 }
 
 /* Container da Lista */
@@ -86,13 +91,13 @@ body {
 
 /* Item Individual da Lista */
 .edit-release-item {
-    display: flex;
-    align-items: center;
-    gap: 16px;
+    display: flex;         /* *** ESSENCIAL PARA O LAYOUT *** */
+    align-items: center;   /* Alinha verticalmente */
+    gap: 16px;            /* Espaço entre imagem, info, botões */
     background-color: var(--background-tertiary);
     padding: 12px;
     border-radius: 8px;
-    overflow: hidden;
+    overflow: hidden; /* Garante que nada vaze */
 }
 
 .edit-release-cover {
@@ -100,12 +105,12 @@ body {
     height: 50px;
     object-fit: cover;
     border-radius: 4px;
-    flex-shrink: 0;
+    flex-shrink: 0;        /* Impede que a imagem encolha */
 }
 
 .edit-release-info {
-    flex-grow: 1;
-    min-width: 0;
+    flex-grow: 1;          /* Faz a info ocupar o espaço restante */
+    min-width: 0;          /* MUITO IMPORTANTE para text-overflow funcionar */
 }
 
 .edit-release-title {
@@ -145,7 +150,7 @@ body {
 }
 
 .release-type-badge.single {
-    background-color: var(--verified-blue);
+    background-color: var(--verified-blue); /* Ou outra cor */
     color: white;
 }
 
@@ -153,21 +158,23 @@ body {
 /* Container dos Botões de Ação (Editar/Apagar) */
 .edit-release-item .action-buttons {
     display: flex;
-    flex-direction: column;
+    flex-direction: column; /* Empilha botões em telas pequenas */
     gap: 8px;
-    align-items: flex-end;
-    flex-shrink: 0;
-    margin-left: auto;
+    align-items: flex-end; /* Alinha os botões à direita do item */
+    flex-shrink: 0;        /* Impede que os botões encolham */
+    margin-left: auto;     /* Empurra os botões para a direita */
 }
 
 /* Botão Editar (Reusa .small-btn e ajusta padding/fonte) */
 .edit-release-btn {
+    /* Herda de .small-btn */
     padding: 6px 8px;
     font-size: 11px;
 }
 
 /* Botão Apagar */
 .delete-release-btn {
+    /* Estilo base de .small-btn, mas com cores vermelhas */
     background: transparent;
     border: 1px solid var(--trend-down-red);
     color: var(--trend-down-red);
@@ -179,17 +186,20 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    white-space: nowrap;
+    white-space: nowrap; /* Impede quebra de linha no texto */
 }
 .delete-release-btn:hover {
-    background: rgba(226, 33, 52, 0.1);
+    background: rgba(226, 33, 52, 0.1); /* Vermelho leve no hover */
 }
 
-/* Formulário de Edição (Escondido initially) */
+/* Formulário de Edição (Escondido inicialmente) */
+#editReleaseForm {
+    /* display: none; é controlado por JS com a classe .hidden */
+}
 #editReleaseForm .display-value {
     font-size: 14px;
     color: var(--text-primary);
-    padding: 14px 0;
+    padding: 14px 0; /* Alinha verticalmente com inputs */
 }
 .edit-warning {
     font-size: 12px;
@@ -208,18 +218,19 @@ body {
 }
 
 /* Ajustes Responsivos para Botões */
-@media (min-width: 450px) {
+@media (min-width: 450px) { /* Ajuste o valor se necessário */
     .edit-release-item .action-buttons {
-        flex-direction: row;
+        flex-direction: row; /* Botões lado a lado em telas maiores */
     }
 }
 
 /* Ajustes no Desktop (Scroll da Lista) */
 @media (min-width: 768px) {
     .release-edit-list {
-        max-height: 400px;
-        overflow-y: auto;
+        max-height: 400px; /* Limita altura da lista no desktop */
+        overflow-y: auto; /* Adiciona scroll se necessário */
     }
+    /* Adiciona scrollbar customizada se desejar */
     .release-edit-list::-webkit-scrollbar {
         width: 8px;
     }
@@ -235,10 +246,10 @@ body {
         background: #555;
     }
 }
+
 /* ========================================================== */
 /* ========= FIM ESTILOS COMPLETOS PARA EDITAR/APAGAR ========= */
 /* ========================================================== */
-
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 /* --- BARRA SUPERIOR (TOPO) --- */
@@ -406,39 +417,51 @@ body {
 .tracklist-container {
     margin-top: 24px;
 }
+
 .track-row {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 16px;
-    padding: 10px 8px;
+    display: flex;             /* Use flexbox for horizontal layout */
+    flex-direction: row;       /* Arrange items in a row */
+    align-items: center;      /* Vertically align items in the middle */
+    gap: 16px;                 /* Space between info block and duration */
+    padding: 10px 8px;         /* Add some vertical and horizontal padding */
     border-bottom: 1px solid var(--background-tertiary);
     min-height: 50px;
     cursor: pointer;
-    transition: background-color 0.2s ease;
+    transition: background-color 0.2s ease; /* Keep hover effect */
 }
+
 .track-row:hover {
     background-color: var(--background-tertiary);
 }
+
 .track-row:last-child {
     border-bottom: none;
 }
+
+/* Número da Faixa - Mantém escondido */
 .track-number {
     display: none;
 }
+
+/* Container Info (Título e Artista) */
 .track-info {
-    flex-grow: 1;
-    min-width: 0;
+    flex-grow: 1;             /* Takes up available space */
+    min-width: 0;             /* Important for text overflow */
+    /* No padding/margin needed here now */
 }
+
+/* Título */
 .track-title {
-    font-weight: 500;
-    color: var(--text-primary);
+    font-weight: 500;         /* Make it slightly bolder if desired */
+    color: var(--text-primary); /* Ensure primary text color */
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: nowrap;      /* Prevent title wrapping */
     display: block;
     line-height: 1.4;
 }
+
+/* Artista(s) */
 .track-artist-feat {
     font-size: 12px;
     color: var(--text-secondary);
@@ -449,32 +472,35 @@ body {
     display: block;
     line-height: 1.2;
 }
+
+/* Streams / Duração */
 .track-duration {
     color: var(--text-secondary);
     font-size: 14px;
-    text-align: right;
+    text-align: right;        /* Align text to the right */
     white-space: nowrap;
-    flex-shrink: 0;
-    margin-left: auto;
+    flex-shrink: 0;           /* Prevent shrinking */
+    margin-left: auto;        /* Pushes this element to the far right */
 }
+
 /* --- ESTILOS PRÉ-LANÇAMENTO (Ajustados para novo layout) --- */
 .track-row.unavailable {
     opacity: 0.5;
     color: var(--text-secondary);
     cursor: not-allowed;
 }
-.track-row.unavailable .track-title {
+.track-row.unavailable .track-title { /* Title color remains secondary */
     color: var(--text-secondary);
 }
-.track-row.unavailable .track-duration {
-    font-size: 1rem;
+.track-row.unavailable .track-duration { /* Stream count replaced by lock icon */
+    font-size: 1rem; /* Adjust icon size if needed */
     color: var(--text-secondary);
-    margin-left: auto;
+    margin-left: auto; /* Ensure it stays right */
 }
 .track-row.available {
     cursor: pointer;
 }
-.track-row.available .track-title {
+.track-row.available .track-title { /* Highlight available titles */
     color: var(--spotify-green);
 }
 .track-row.available:hover {
@@ -518,7 +544,7 @@ body {
 /* --- ESTILOS DO ESTÚDIO --- */
 .studio-login-wrapper { background-color: var(--background-secondary); padding: 24px; border-radius: 12px; margin-bottom: 24px; }
 .studio-login-wrapper label { display: block; font-size: 12px; font-weight: 700; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; }
-.studio-login-wrapper input, .studio-login-wrapper select {
+.studio-login-wrapper input, .studio-login-wrapper select { /* Applied to input as well */
   width: 100%; background-color: var(--background-tertiary); border: 1px solid #535353;
   color: var(--text-primary); padding: 14px; border-radius: 6px; font-size: 14px;
   font-family: "Montserrat", sans-serif; margin-bottom: 16px; appearance: none;
@@ -529,9 +555,9 @@ body {
     background-repeat: no-repeat;
     background-position: right 14px center;
     background-size: 16px 16px;
-    padding-right: 40px;
+    padding-right: 40px; /* Space for the arrow */
 }
-#loginButton { width: 100%; margin-top: 0; }
+#loginButton { width: 100%; margin-top: 0; } /* Adjusted margin for login button */
 #loggedInInfo p { font-size: 14px; color: var(--text-secondary); margin: 0; }
 #loggedInInfo p strong { color: var(--text-primary); }
 #loggedInInfo { display: flex; justify-content: space-between; align-items: center; }
@@ -565,9 +591,9 @@ body {
     background-repeat: no-repeat;
     background-position: right 14px center;
     background-size: 16px 16px;
-    padding-right: 40px;
+    padding-right: 40px; /* Espaço para a seta */
 }
-.studio-form-group input[type="datetime-local"] { color-scheme: dark; }
+.studio-form-group input[type="datetime-local"] { color-scheme: dark; } /* Adjusted type */
 .studio-form-group input::placeholder { color: #757575; }
 
 .submit-btn {
@@ -586,7 +612,7 @@ body {
 
 /* Editor de Tracklist e Feats (Estúdio) */
 .track-list-editor { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
-.track-list-item-display {
+.track-list-item-display { /* Item na lista do editor */
   display: flex; align-items: center; gap: 10px;
   background-color: var(--background-tertiary); padding: 12px; border-radius: 6px;
 }
@@ -679,6 +705,15 @@ body {
 .countdown-item label { font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; }
 .release-date-text { font-size: 0.9rem; color: var(--text-secondary); }
 
+/* Tracklist Pré-lançamento (Regras aplicadas a .track-row com Flexbox) */
+.track-row.unavailable { opacity: 0.5; color: var(--text-secondary); cursor: not-allowed; }
+.track-row.unavailable .track-title { color: var(--text-secondary); }
+.track-row.unavailable .track-duration { font-size: 1rem; color: var(--text-secondary); } /* Estilo ícone cadeado */
+.track-row.available { cursor: pointer; }
+.track-row.available .track-number { color: var(--spotify-green); }
+.track-row.available .track-title { color: var(--spotify-green); }
+.track-row.available:hover { background-color: var(--background-tertiary); }
+
 
 /* ========================================================== */
 /* ============= MELHORIAS PARA DESKTOP (PC) ================ */
@@ -712,11 +747,11 @@ body {
   #albumDetailTitle { font-size: 40px; }
 
   .studio-login-wrapper { display: flex; justify-content: space-between; align-items: center; }
-  .studio-login-wrapper #loginPrompt { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; width: auto; flex-grow: 1; margin-right: 20px; }
-  .studio-login-wrapper #loginPrompt .studio-form-group { flex: 1 1 200px; margin-bottom: 0; }
-  .studio-login-wrapper label { margin-bottom: 4px; }
+  .studio-login-wrapper #loginPrompt { display: flex; flex-wrap: wrap; /* Allows wrapping on smaller desktop widths */ align-items: flex-end; /* Aligns bottom */ gap: 16px; width: auto; flex-grow: 1; margin-right: 20px; }
+  .studio-login-wrapper #loginPrompt .studio-form-group { flex: 1 1 200px; /* Allows inputs to grow/shrink */ margin-bottom: 0; }
+  .studio-login-wrapper label { margin-bottom: 4px; /* Smaller margin */ }
   .studio-login-wrapper input, .studio-login-wrapper select { margin-bottom: 0; }
-  #loginButton { width: auto; flex-shrink: 0; margin-top: 0; }
+  #loginButton { width: auto; flex-shrink: 0; /* Prevents button shrinking */ margin-top: 0; /* Removed top margin */ }
 
   .track-list-item-display .track-details-display { flex-wrap: nowrap; gap: 15px; }
 
@@ -747,10 +782,12 @@ body {
   transition: transform 0.4s ease;
 }
 
+/* Quando o player estiver oculto (por padrão), ele fica fora da tela */
 #musicPlayer.hidden {
   transform: translateY(100%);
 }
 
+/* Trava a rolagem do body quando o player está aberto */
 body.player-open {
   overflow: hidden;
 }
@@ -784,22 +821,22 @@ body.player-open {
 .player-body {
   display: flex;
   flex-direction: column;
-  justify-content: space-around;
-  align-items: center;
+  justify-content: space-around; /* Changed from space-around */
+  align-items: center; /* Center items */
   flex-grow: 1;
   padding: 0 24px 24px;
-  overflow-y: auto;
-  gap: 20px;
+  overflow-y: auto; /* Allow scrolling if content overflows */
+  gap: 20px; /* Add gap between elements */
 }
 
 #playerCoverArt {
   width: 100%;
-  max-width: 350px;
+  max-width: 350px; /* Max width for larger screens */
   aspect-ratio: 1 / 1;
   object-fit: cover;
   border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-  margin: 10px auto 0;
+  margin: 10px auto 0; /* Adjusted margin */
 }
 
 .player-song-info {
@@ -807,9 +844,9 @@ body.player-open {
   grid-template-columns: 1fr auto;
   align-items: center;
   gap: 8px;
-  margin-top: 10px;
-  width: 100%;
-  max-width: 500px;
+  margin-top: 10px; /* Reduced margin */
+  width: 100%; /* Take full width */
+  max-width: 500px; /* Limit width on larger screens */
 }
 #playerSongTitle {
   font-size: 24px;
@@ -846,9 +883,9 @@ body.player-open {
 }
 
 .player-seeker {
-  margin-top: 10px;
-  width: 100%;
-  max-width: 500px;
+  margin-top: 10px; /* Reduced margin */
+  width: 100%; /* Take full width */
+  max-width: 500px; /* Limit width */
 }
 .player-seeker input[type="range"] {
   -webkit-appearance: none;
@@ -859,6 +896,7 @@ body.player-open {
   outline: none;
   cursor: pointer;
 }
+/* Estilo do "polegar" (bolinha) da barra */
 .player-seeker input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
@@ -868,7 +906,7 @@ body.player-open {
   border-radius: 50%;
   cursor: pointer;
 }
-.player-seeker input[type="range"]::-moz-range-thumb {
+.player-seeker input[type="range"]::-moz-range-thumb { /* Firefox */
   width: 16px;
   height: 16px;
   background: var(--text-primary);
@@ -888,9 +926,9 @@ body.player-open {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 10px;
-  width: 100%;
-  max-width: 500px;
+  margin-top: 10px; /* Reduced margin */
+  width: 100%; /* Take full width */
+  max-width: 500px; /* Limit width */
 }
 .player-btn {
   background: none;
@@ -910,15 +948,214 @@ body.player-open {
   color: #000;
 }
 .player-btn.main-play i {
-  margin-left: 2px;
+  margin-left: 2px; /* Ajuste fino para o ícone de play */
 }
 .player-btn#playerShuffleBtn.active,
 .player-btn#playerRepeatBtn.active {
   color: var(--spotify-green);
 }
+/* --- ESTILOS ADICIONAIS PARA SEÇÃO DE EDIÇÃO --- */
+#editReleaseSection h3 {
+    color: var(--spotify-green);
+    margin-bottom: 20px;
+}
 
-/* Ajustes Desktop para o Player */
+/* Aplica o estilo padrão de select ao filtro de artista */
+#editArtistFilterSelect {
+    width: 100%;
+    background-color: var(--background-tertiary);
+    border: 1px solid #535353;
+    color: var(--text-primary);
+    padding: 14px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: "Montserrat", sans-serif;
+    appearance: none; /* Remove default browser styling */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23b3b3b3' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    background-size: 16px 16px;
+    padding-right: 40px; /* Space for the arrow */
+}
+
+.edit-instructions {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+}
+
+.release-edit-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.edit-release-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background-color: var(--background-tertiary);
+    padding: 12px;
+    border-radius: 8px;
+}
+
+.edit-release-cover {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.edit-release-info {
+    flex-grow: 1;
+    min-width: 0; /* Para ellipsis funcionar */
+}
+
+.edit-release-title {
+    font-size: 14px;
+    font-weight: 600;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-primary);
+}
+/* --- ESTILOS PARA BOTÃO APAGAR E MODAL --- */
+.edit-release-item .action-buttons {
+    display: flex;
+    flex-direction: column; /* Empilha os botões verticalmente em telas menores se necessário */
+    gap: 8px; /* Espaço entre Editar e Apagar */
+    align-items: flex-end; /* Alinha botões à direita */
+    flex-shrink: 0;
+}
+
+.delete-release-btn {
+    background: transparent;
+    border: 1px solid var(--trend-down-red);
+    color: var(--trend-down-red);
+    padding: 8px 10px; /* Ajuste para caber ícone e texto */
+    font-size: 11px; /* Menor para caber melhor */
+}
+
+.delete-release-btn:hover {
+    background: rgba(226, 33, 52, 0.1); /* Vermelho leve no hover */
+}
+
+/* Modal de Confirmação */
+#deleteConfirmModal .modal-content h3 i {
+    margin-right: 8px;
+}
+
+.modal-warning {
+    font-size: 13px;
+    color: #ffcc00; /* Amarelo para aviso */
+    background-color: rgba(255, 204, 0, 0.1);
+    padding: 10px;
+    border-radius: 4px;
+    margin-top: 16px;
+    border-left: 3px solid #ffcc00;
+}
+.modal-warning strong {
+    color: #ffd633;
+}
+
+
+.delete-confirm-btn {
+    background-color: var(--trend-down-red);
+    color: var(--text-primary); /* Branco ou preto dependendo do seu tema */
+}
+.delete-confirm-btn:hover:not(:disabled) {
+    background-color: #c81e2f; /* Vermelho mais escuro no hover */
+    transform: scale(1.02);
+}
+.delete-confirm-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: var(--trend-down-red); /* Mantém a cor base mesmo desabilitado */
+}
+
+/* Ajuste para botões lado a lado no desktop */
+@media (min-width: 400px) { /* Ou outro breakpoint se preferir */
+    .edit-release-item .action-buttons {
+        flex-direction: row; /* Botões lado a lado */
+    }
+}
+.edit-release-artist {
+    font-size: 12px;
+    color: var(--text-secondary);
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.edit-release-btn {
+    flex-shrink: 0; /* Impede que o botão encolha */
+    padding: 8px 12px;
+}
+
+/* Estilos para o formulário de edição */
+#editReleaseForm .display-value {
+    font-size: 14px;
+    color: var(--text-primary);
+    padding: 14px 0; /* Alinha verticalmente com inputs */
+}
+
+.edit-warning {
+    font-size: 12px;
+    color: #ffcc00; /* Amarelo para aviso */
+    margin-top: 10px;
+    margin-bottom: 16px;
+    background-color: rgba(255, 204, 0, 0.1);
+    padding: 8px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#editReleaseForm .modal-actions {
+    margin-top: 24px; /* Espaçamento antes dos botões */
+}
+
+/* Ajustes no Desktop */
 @media (min-width: 768px) {
+    .release-edit-list {
+        max-height: 400px; /* Limita altura da lista no desktop */
+        overflow-y: auto;
+    }
+    #editReleaseSection {
+        /* Adiciona um pouco mais de padding no desktop se necessário */
+        /* padding: 32px; */
+    }
+}
+#existingTrackResults .existing-track-item-artist {
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* *** ESSA FOI A LINHA CORRIGIDA *** */
+    display: block;
+}
+#existingTrackResults .existing-track-item .add-icon { /* Style for the plus icon */
+    color: var(--text-secondary);
+    font-size: 16px;
+    margin-left: auto; /* Push icon to the right */
+    flex-shrink: 0;
+}
+#existingTrackResults .existing-track-item:hover .add-icon {
+    color: var(--spotify-green); /* Change color on hover */
+}
+
+/* ========================================================== */
+/* ============= MELHORIAS PARA DESKTOP (PC) ================ */
+/* ========================================================== */
+@media (min-width: 768px) {
+  /* ... (seus estilos de desktop existentes) ... */
+
+  /* Ajusta o player no desktop */
   #musicPlayer {
     background: linear-gradient(
       180deg,
@@ -931,9 +1168,14 @@ body.player-open {
     max-width: 700px;
     margin: 0 auto;
     width: 100%;
-    justify-content: center;
+    justify-content: center; /* Center content vertically */
   }
 }
+
+@media (min-width: 1200px) {
+  /* ... (seus estilos de desktop existentes) ... */
+}
+
 
 /* ========================================================== */
 /* ============= NOVOS ESTILOS (REAPROVEITAMENTO) ============= */
@@ -950,12 +1192,13 @@ body.player-open {
     gap: 8px;
     font-size: 14px;
     color: var(--text-secondary);
-s   cursor: pointer;
+    cursor: pointer;
 }
 .checkbox-label input[type="checkbox"] {
     width: auto; /* Tamanho padrão do checkbox */
     accent-color: var(--spotify-green); /* Cor do check */
     cursor: pointer;
+    appearance: auto; /* Esta regra já estava correta aqui no final do arquivo */
 }
 #existingTrackGroup small {
     display: block;
@@ -967,7 +1210,7 @@ s   cursor: pointer;
 /* Ações da Tracklist (Album Form) */
 .tracklist-actions {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: wrap; /* Permite quebra de linha em telas pequenas */
     gap: 10px;
     margin-bottom: 16px;
 }
@@ -975,7 +1218,7 @@ s   cursor: pointer;
 .tracklist-actions .small-btn {
     margin: 0;
     flex: 1;
-    min-width: 150px;
+    min-width: 150px; /* Garante que não fiquem muito espremidos */
 }
 
 /* Estilos para resultados da busca de faixa existente (no modal) */
@@ -1011,31 +1254,153 @@ s   cursor: pointer;
     text-overflow: ellipsis;
     display: block;
 }
-#existingTrackResults .existing-track-item-artist {
-    font-size: 12px;
+/* --- ESTILOS ADICIONAIS PARA SEÇÃO DE EDIÇÃO --- */
+#editReleaseSection h3 {
+    color: var(--spotify-green);
+    margin-bottom: 20px;
+}
+
+/* Aplica o estilo padrão de select ao filtro de artista */
+#editArtistFilterSelect {
+    width: 100%;
+    background-color: var(--background-tertiary);
+    border: 1px solid #535353;
+    color: var(--text-primary);
+    padding: 14px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: "Montserrat", sans-serif;
+    appearance: none; /* Remove default browser styling */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23b3b3b3' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    background-size: 16px 16px;
+    padding-right: 40px; /* Space for the arrow */
+}
+
+/* Remove a classe .styled-select se não for mais usada em outros lugares */
+/* Se for usada, copie as regras acima para .styled-select também */
+
+.edit-instructions {
+    font-size: 14px;
     color: var(--text-secondary);
+    margin-bottom: 16px;
+}
+
+.release-edit-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.edit-release-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background-color: var(--background-tertiary);
+    padding: 12px;
+    border-radius: 8px;
+}
+
+.edit-release-cover {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.edit-release-info {
+    flex-grow: 1;
+    min-width: 0; /* Para ellipsis funcionar */
+}
+
+.edit-release-title {
+    font-size: 14px;
+    font-weight: 600;
+    display: block;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    display: block;
-}
-#existingTrackResults .existing-track-item .add-icon {
-    color: var(--text-secondary);
-    font-size: 16px;
-    margin-left: auto;
-    flex-shrink: 0;
-}
-#existingTrackResults .existing-track-item:hover .add-icon {
-    color: var(--spotify-green);
+    color: var(--text-primary);
 }
 
-/* --- ESTILOS PARA BOTÃO APAGAR E MODAL --- */
+.edit-release-artist {
+    font-size: 12px;
+    color: var(--text-secondary);
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px; /* Pequeno espaço entre título e artista */
+}
+
+.edit-release-item .action-buttons {
+    display: flex;
+    flex-direction: column; /* Empilha os botões verticalmente em telas menores */
+    gap: 8px; /* Espaço entre Editar e Apagar */
+    align-items: flex-end; /* Alinha botões à direita */
+    flex-shrink: 0;
+}
+
+.edit-release-btn {
+    /* Estilo já definido em .small-btn, mas pode adicionar ajustes se necessário */
+    padding: 8px 10px;
+    font-size: 11px;
+}
+
+.delete-release-btn {
+    /* Estilo base de .small-btn */
+    background: transparent;
+    border: 1px solid var(--trend-down-red);
+    color: var(--trend-down-red);
+    padding: 8px 10px; /* Ajuste para caber ícone e texto */
+    font-size: 11px; /* Menor para caber melhor */
+    border-radius: 6px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.delete-release-btn:hover {
+    background: rgba(226, 33, 52, 0.1); /* Vermelho leve no hover */
+}
+
+/* Estilos para o formulário de edição */
+#editReleaseForm .display-value {
+    font-size: 14px;
+    color: var(--text-primary);
+    padding: 14px 0; /* Alinha verticalmente com inputs */
+}
+
+.edit-warning {
+    font-size: 12px;
+    color: #ffcc00; /* Amarelo para aviso */
+    margin-top: 10px;
+    margin-bottom: 16px;
+    background-color: rgba(255, 204, 0, 0.1);
+    padding: 8px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#editReleaseForm .modal-actions {
+    margin-top: 24px; /* Espaçamento antes dos botões */
+}
+
+/* Modal de Confirmação */
 #deleteConfirmModal .modal-content h3 i {
     margin-right: 8px;
 }
+
 .modal-warning {
     font-size: 13px;
-    color: #ffcc00;
+    color: #ffcc00; /* Amarelo para aviso */
     background-color: rgba(255, 204, 0, 0.1);
     padding: 10px;
     border-radius: 4px;
@@ -1045,18 +1410,46 @@ s   cursor: pointer;
 .modal-warning strong {
     color: #ffd633;
 }
+
 .delete-confirm-btn {
     background-color: var(--trend-down-red);
-    color: var(--text-primary);
+    color: var(--text-primary); /* Branco */
 }
 .delete-confirm-btn:hover:not(:disabled) {
-    background-color: #c81e2f;
+    background-color: #c81e2f; /* Vermelho mais escuro no hover */
     transform: scale(1.02);
 }
 .delete-confirm-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-    background-color: var(--trend-down-red);
+    background-color: var(--trend-down-red); /* Mantém a cor base mesmo desabilitado */
+}
+
+/* Ajuste para botões lado a lado em telas maiores */
+@media (min-width: 400px) { /* Ou outro breakpoint se preferir */
+    .edit-release-item .action-buttons {
+        flex-direction: row; /* Botões lado a lado */
+    }
+}
+
+/* Ajustes no Desktop */
+@media (min-width: 768px) {
+    .release-edit-list {
+        max-height: 400px; /* Limita altura da lista no desktop */
+        overflow-y: auto;
+    }
+    #editReleaseSection {
+        /* Adiciona um pouco mais de padding no desktop se necessário */
+        /* padding: 32px; */
+    }
+}
+#existingTrackResults .existing-track-item-artist {
+    font-size: 12px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
 }
 
 /* Loading Indicator */
@@ -1067,7 +1460,7 @@ body.loading::before {
     left: 0;
     width: 100%;
     height: 100%;
-s   background-color: rgba(0, 0, 0, 0.7);
+    background-color: rgba(0, 0, 0, 0.7);
     z-index: 9999;
     display: flex;
     align-items: center;
