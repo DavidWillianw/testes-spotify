@@ -12,22 +12,6 @@
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
-
-/* * ESTA É A CORREÇÃO IMPORTANTE: 
- * Esta regra é mais específica e força os checkboxes a aparecerem corretamente, 
- * mesmo que outras regras tentem escondê-los.
-*/
-.studio-form-group.checkbox-group input[type="checkbox"],
-.checkbox-label input[type="checkbox"] {
-    appearance: auto !important; 
-    width: auto !important;
-    padding: 0 !important;
-    margin-right: 8px !important;
-    vertical-align: middle !important; 
-    accent-color: var(--spotify-green); /* Adiciona a cor do Spotify ao marcar */
-}
-
-/* Esta é a sua regra original que eu mantive, apenas garantindo que a regra acima vença */
 .studio-form-group.checkbox-group input[type="checkbox"] {
     /* Traz a caixinha de volta */
     appearance: auto; 
@@ -971,7 +955,6 @@ body.player-open {
   color: var(--spotify-green);
 }
 /* --- ESTILOS ADICIONAIS PARA SEÇÃO DE EDIÇÃO --- */
-/* (Este é o seu primeiro bloco duplicado, eu o mantive) */
 #editReleaseSection h3 {
     color: var(--spotify-green);
     margin-bottom: 20px;
@@ -1040,7 +1023,6 @@ body.player-open {
     color: var(--text-primary);
 }
 /* --- ESTILOS PARA BOTÃO APAGAR E MODAL --- */
-/* (Este é o seu segundo bloco duplicado, eu o mantive) */
 .edit-release-item .action-buttons {
     display: flex;
     flex-direction: column; /* Empilha os botões verticalmente em telas menores se necessário */
@@ -1154,7 +1136,7 @@ body.player-open {
     color: var(--text-secondary);
     white-space: nowrap;
     overflow: hidden;
-  t   text-overflow: ellipsis;
+  Such as text-overflow: ellipsis;
     display: block;
 }
 #existingTrackResults .existing-track-item .add-icon { /* Style for the plus icon */
@@ -1169,7 +1151,7 @@ body.player-open {
 
 /* ========================================================== */
 /* ============= MELHORIAS PARA DESKTOP (PC) ================ */
-/* (Este é o seu terceiro bloco duplicado, eu o mantive) */
+/* ========================================================== */
 @media (min-width: 768px) {
   /* ... (seus estilos de desktop existentes) ... */
 
@@ -1197,7 +1179,6 @@ body.player-open {
 
 /* ========================================================== */
 /* ============= NOVOS ESTILOS (REAPROVEITAMENTO) ============= */
-/* (Este é o seu quarto bloco duplicado, eu o mantive) */
 /* ========================================================== */
 
 /* Estilos para o Toggle de Faixa Existente */
@@ -1213,7 +1194,15 @@ body.player-open {
     color: var(--text-secondary);
     cursor: pointer;
 }
+
+/*
+ *
+ * *** ESTA É A CORREÇÃO ***
+ * Eu adicionei 'appearance: auto;' aqui.
+ *
+ */
 .checkbox-label input[type="checkbox"] {
+    appearance: auto; /* Esta linha corrige o checkbox que estava sumido */
     width: auto; /* Tamanho padrão do checkbox */
     accent-color: var(--spotify-green); /* Cor do check */
     cursor: pointer;
@@ -1273,7 +1262,6 @@ body.player-open {
     display: block;
 }
 /* --- ESTILOS ADICIONAIS PARA SEÇÃO DE EDIÇÃO --- */
-/* (Este é o seu quinto bloco duplicado, eu o mantive) */
 #editReleaseSection h3 {
     color: var(--spotify-green);
     margin-bottom: 20px;
@@ -1473,7 +1461,7 @@ body.player-open {
 
 /* Loading Indicator */
 body.loading::before {
-s   content: '';
+    content: '';
     position: fixed;
     top: 0;
     left: 0;
