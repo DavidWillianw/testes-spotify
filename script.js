@@ -1,275 +1,275 @@
 document.addEventListener('DOMContentLoaded', async () => {
 
-    // --- VARIÁVEIS GLOBAIS ---
-    let db = { artists: [], albums: [], singles: [], songs: [], players: [] };
-    let currentPlayer = null;
-    let albumTracklistSortable = null; // Sortable para o form NOVO
-    let activeArtist = null;
-    let currentFeatTarget = null;
-    let viewHistory = [];
-    let editingTrackItem = null; // Item da lista sendo editado no modal
-    let previousMusicChartData = {};
-    let previousAlbumChartData = {};
-    let previousRpgChartData = {};
-    let albumCountdownInterval = null;
-    let existingTrackModalContext = 'album';
+    // --- VARIÁVEIS GLOBAIS ---
+    let db = { artists: [], albums: [], singles: [], songs: [], players: [] };
+    let currentPlayer = null;
+    let albumTracklistSortable = null; // Sortable para o form NOVO
+    let activeArtist = null;
+    let currentFeatTarget = null;
+    let viewHistory = [];
+    let editingTrackItem = null; // Item da lista sendo editado no modal
+    let previousMusicChartData = {};
+    let previousAlbumChartData = {};
+    let previousRpgChartData = {};
+    let albumCountdownInterval = null;
+    let existingTrackModalContext = 'album';
 
-    // NOVAS VARIÁVEIS GLOBAIS PARA EDIÇÃO
-    let editAlbumTracklistSortable = null; // Instância Sortable para o formulário de EDIÇÃO
-    let activeTracklistEditor = null; // Referência para qual editor (novo ou edição) está ativo no momento
+    // NOVAS VARIÁVEIS GLOBAIS PARA EDIÇÃO
+    let editAlbumTracklistSortable = null; // Instância Sortable para o formulário de EDIÇÃO
+    let activeTracklistEditor = null; // Referência para qual editor (novo ou edição) está ativo no momento
 
-    // --- VARIÁVEIS DO PLAYER ---
-    let audioElement = null;
-    let musicPlayerView = null;
-    let playerCloseBtn = null;
-    let playerAlbumTitle = null;
-    let playerCoverArt = null;
-    let playerSongTitle = null;
-    let playerArtistName = null;
-    let playerSeekBar = null;
-    let playerCurrentTime = null;
-    let playerTotalTime = null;
-    let playerShuffleBtn = null;
-    let playerPrevBtn = null;
-    let playerPlayPauseBtn = null;
-    let playerNextBtn = null;
-    let playerRepeatBtn = null;
-    let currentSong = null;
-    let currentQueue = [];
-    let currentQueueIndex = 0;
-    let isPlaying = false;
-    let isShuffle = false;
-    let repeatMode = 'none'; // 'none', 'all', 'one'
+    // --- VARIÁVEIS DO PLAYER ---
+    let audioElement = null;
+    let musicPlayerView = null;
+    let playerCloseBtn = null;
+    let playerAlbumTitle = null;
+    let playerCoverArt = null;
+    let playerSongTitle = null;
+    let playerArtistName = null;
+    let playerSeekBar = null;
+    let playerCurrentTime = null;
+    let playerTotalTime = null;
+    let playerShuffleBtn = null;
+    let playerPrevBtn = null;
+    let playerPlayPauseBtn = null;
+    let playerNextBtn = null;
+    let playerRepeatBtn = null;
+    let currentSong = null;
+    let currentQueue = [];
+    let currentQueueIndex = 0;
+    let isPlaying = false;
+    let isShuffle = false;
+    let repeatMode = 'none'; // 'none', 'all', 'one'
 
-    // --- ELEMENTOS DO DOM ---
-    let allViews, searchInput, studioView, loginPrompt, loggedInInfo, playerSelect,
-        loginButton, logoutButton, studioLaunchWrapper, studioTabs, studioForms,
-        newSingleForm, singleArtistSelect, singleReleaseDateInput, singleFeatList,
-        newAlbumForm, albumArtistSelect, albumReleaseDateInput,
-        albumTracklistEditor, // Editor do NOVO álbum
-        featModal, featArtistSelect,
-        featTypeSelect, confirmFeatBtn, cancelFeatBtn,
-        trackTypeModal, trackTypeSelect, confirmTrackTypeBtn, cancelTrackTypeBtn,
-        albumTrackModal, albumTrackModalTitle, openAddTrackModalBtn, // Botão do NOVO álbum
-        albumTrackNameInput, albumTrackDurationInput, albumTrackTypeSelect,
-        albumTrackFeatList, saveAlbumTrackBtn, cancelAlbumTrackBtn, editingTrackItemId,
-        editingTrackExistingId,
-        inlineFeatAdder, inlineFeatArtistSelect, inlineFeatTypeSelect,
-        confirmInlineFeatBtn, cancelInlineFeatBtn, addInlineFeatBtn,
-        editReleaseSection, editReleaseListContainer, editReleaseList, editReleaseForm,
-        editReleaseId, editReleaseType, editReleaseTableName, editArtistNameDisplay,
-        editReleaseTitle, editReleaseCoverUrl, editReleaseDate, cancelEditBtn, saveEditBtn,
-        deleteConfirmModal, deleteReleaseName, deleteRecordId, deleteTableName,
-        deleteTrackIds, cancelDeleteBtn, confirmDeleteBtn,
-        toggleExistingSingle, newTrackInfoGroup, existingTrackGroup,
-        existingTrackSelect, existingSingleTrackId, singleFeatSection,
-        openExistingTrackModalBtn, // Botão do NOVO álbum
-        existingTrackModal, existingTrackSearch,
-        existingTrackResults, cancelExistingTrackBtn, editArtistFilterSelect,
-        // NOVOS ELEMENTOS DO DOM PARA EDIÇÃO
-        editAlbumTracklistEditor, // Editor do formulário de EDIÇÃO
-        editTracklistActions, // Container dos botões de ação de EDIÇÃO
-        openEditAddTrackModalBtn, // Botão Adicionar Nova Faixa (EDIÇÃO)
-        openEditExistingTrackModalBtn; // Botão Usar Faixa Existente (EDIÇÃO)
+    // --- ELEMENTOS DO DOM ---
+    let allViews, searchInput, studioView, loginPrompt, loggedInInfo, playerSelect,
+        loginButton, logoutButton, studioLaunchWrapper, studioTabs, studioForms,
+        newSingleForm, singleArtistSelect, singleReleaseDateInput, singleFeatList,
+        newAlbumForm, albumArtistSelect, albumReleaseDateInput,
+        albumTracklistEditor, // Editor do NOVO álbum
+        featModal, featArtistSelect,
+        featTypeSelect, confirmFeatBtn, cancelFeatBtn,
+        trackTypeModal, trackTypeSelect, confirmTrackTypeBtn, cancelTrackTypeBtn,
+        albumTrackModal, albumTrackModalTitle, openAddTrackModalBtn, // Botão do NOVO álbum
+        albumTrackNameInput, albumTrackDurationInput, albumTrackTypeSelect,
+        albumTrackFeatList, saveAlbumTrackBtn, cancelAlbumTrackBtn, editingTrackItemId,
+        editingTrackExistingId,
+        inlineFeatAdder, inlineFeatArtistSelect, inlineFeatTypeSelect,
+        confirmInlineFeatBtn, cancelInlineFeatBtn, addInlineFeatBtn,
+        editReleaseSection, editReleaseListContainer, editReleaseList, editReleaseForm,
+        editReleaseId, editReleaseType, editReleaseTableName, editArtistNameDisplay,
+        editReleaseTitle, editReleaseCoverUrl, editReleaseDate, cancelEditBtn, saveEditBtn,
+        deleteConfirmModal, deleteReleaseName, deleteRecordId, deleteTableName,
+        deleteTrackIds, cancelDeleteBtn, confirmDeleteBtn,
+        toggleExistingSingle, newTrackInfoGroup, existingTrackGroup,
+        existingTrackSelect, existingSingleTrackId, singleFeatSection,
+        openExistingTrackModalBtn, // Botão do NOVO álbum
+        existingTrackModal, existingTrackSearch,
+        existingTrackResults, cancelExistingTrackBtn, editArtistFilterSelect,
+        // NOVOS ELEMENTOS DO DOM PARA EDIÇÃO
+        editAlbumTracklistEditor, // Editor do formulário de EDIÇÃO
+        editTracklistActions, // Container dos botões de ação de EDIÇÃO
+        openEditAddTrackModalBtn, // Botão Adicionar Nova Faixa (EDIÇÃO)
+        openEditExistingTrackModalBtn; // Botão Usar Faixa Existente (EDIÇÃO)
 
 
-    const AIRTABLE_BASE_ID = 'appG5NOoblUmtSMVI';
-    const AIRTABLE_API_KEY = 'pat5T28kjmJ4t6TQG.69bf34509e687fff6a3f76bd52e64518d6c92be8b1ee0a53bcc9f50fedcb5c70'; // Use sua chave real aqui
+    const AIRTABLE_BASE_ID = 'appG5NOoblUmtSMVI';
+    const AIRTABLE_API_KEY = 'pat5T28kjmJ4t6TQG.69bf34509e687fff6a3f76bd52e64518d6c92be8b1ee0a53bcc9f50fedcb5c70'; // Use sua chave real aqui
 
-    const PREVIOUS_MUSIC_CHART_KEY = 'spotifyRpg_previousMusicChart';
-    const PREVIOUS_ALBUM_CHART_KEY = 'spotifyRpg_previousAlbumChart';
-    const PREVIOUS_RPG_CHART_KEY = 'spotifyRpg_previousRpgChart';
+    const PREVIOUS_MUSIC_CHART_KEY = 'spotifyRpg_previousMusicChart';
+    const PREVIOUS_ALBUM_CHART_KEY = 'spotifyRpg_previousAlbumChart';
+    const PREVIOUS_RPG_CHART_KEY = 'spotifyRpg_previousRpgChart';
 
-    // --- FUNÇÃO PARA INICIALIZAR ELEMENTOS DO DOM ---
-    function initializeDOMElements() {
-        console.log("Initializing DOM elements...");
-        try {
-            allViews = document.querySelectorAll('.page-view');
-            searchInput = document.getElementById('searchInput');
-            studioView = document.getElementById('studioView');
-            loginPrompt = document.getElementById('loginPrompt');
-            loggedInInfo = document.getElementById('loggedInInfo');
-            playerSelect = document.getElementById('playerSelect'); // Note: This ID doesn't seem to be used later
-            loginButton = document.getElementById('loginButton');
-            logoutButton = document.getElementById('logoutButton');
-            studioLaunchWrapper = document.getElementById('studioLaunchWrapper');
-            studioTabs = document.querySelectorAll('.studio-tab-btn');
-            studioForms = document.querySelectorAll('.studio-form-content');
-            newSingleForm = document.getElementById('newSingleForm');
-            singleArtistSelect = document.getElementById('singleArtistSelect');
-            singleReleaseDateInput = document.getElementById('singleReleaseDate');
-            singleFeatList = document.getElementById('singleFeatList');
-            newAlbumForm = document.getElementById('newAlbumForm');
-            albumArtistSelect = document.getElementById('albumArtistSelect');
-            albumReleaseDateInput = document.getElementById('albumReleaseDate');
-            albumTracklistEditor = document.getElementById('albumTracklistEditor'); // NOVO
-            featModal = document.getElementById('featModal');
-            featArtistSelect = document.getElementById('featArtistSelect');
-            featTypeSelect = document.getElementById('featTypeSelect');
-            confirmFeatBtn = document.getElementById('confirmFeatBtn');
-            cancelFeatBtn = document.getElementById('cancelFeatBtn');
-            trackTypeModal = document.getElementById('trackTypeModal');
-            trackTypeSelect = document.getElementById('trackTypeSelect');
-            confirmTrackTypeBtn = document.getElementById('confirmTrackTypeBtn');
-            cancelTrackTypeBtn = document.getElementById('cancelTrackTypeBtn');
-            albumTrackModal = document.getElementById('albumTrackModal');
-            albumTrackModalTitle = document.getElementById('albumTrackModalTitle');
-            openAddTrackModalBtn = document.getElementById('openAddTrackModalBtn'); // NOVO
-            albumTrackNameInput = document.getElementById('albumTrackNameInput');
-            albumTrackDurationInput = document.getElementById('albumTrackDurationInput');
-            albumTrackTypeSelect = document.getElementById('albumTrackTypeSelect');
-            albumTrackFeatList = document.getElementById('albumTrackFeatList');
-            saveAlbumTrackBtn = document.getElementById('saveAlbumTrackBtn');
-            cancelAlbumTrackBtn = document.getElementById('cancelAlbumTrackBtn');
-            editingTrackItemId = document.getElementById('editingTrackItemId');
-            editingTrackExistingId = document.getElementById('editingTrackExistingId');
-            inlineFeatAdder = document.getElementById('inlineFeatAdder');
-            inlineFeatArtistSelect = document.getElementById('inlineFeatArtistSelect');
-            inlineFeatTypeSelect = document.getElementById('inlineFeatTypeSelect');
-            confirmInlineFeatBtn = document.getElementById('confirmInlineFeatBtn');
-            cancelInlineFeatBtn = document.getElementById('cancelInlineFeatBtn');
-            addInlineFeatBtn = albumTrackModal?.querySelector('.add-inline-feat-btn'); // Needs albumTrackModal to exist
-            audioElement = document.getElementById('audioElement');
-            musicPlayerView = document.getElementById('musicPlayer');
-            playerCloseBtn = document.querySelector('.player-close-btn');
-            playerAlbumTitle = document.getElementById('playerAlbumTitle');
-            playerCoverArt = document.getElementById('playerCoverArt');
-            playerSongTitle = document.getElementById('playerSongTitle');
-            playerArtistName = document.getElementById('playerArtistName');
-            playerSeekBar = document.getElementById('playerSeekBar');
-            playerCurrentTime = document.getElementById('playerCurrentTime');
-            playerTotalTime = document.getElementById('playerTotalTime');
-            playerShuffleBtn = document.getElementById('playerShuffleBtn');
-            playerPrevBtn = document.getElementById('playerPrevBtn');
-            playerPlayPauseBtn = document.getElementById('playerPlayPauseBtn');
-            playerNextBtn = document.getElementById('playerNextBtn');
-            playerRepeatBtn = document.getElementById('playerRepeatBtn');
-            editReleaseSection = document.getElementById('editReleaseSection');
-            editReleaseListContainer = document.getElementById('editReleaseListContainer');
-            editReleaseList = document.getElementById('editReleaseList');
-            editReleaseForm = document.getElementById('editReleaseForm');
-            editReleaseId = document.getElementById('editReleaseId');
-            editReleaseType = document.getElementById('editReleaseType');
-            editReleaseTableName = document.getElementById('editReleaseTableName');
-            editArtistNameDisplay = document.getElementById('editArtistNameDisplay');
-            editReleaseTitle = document.getElementById('editReleaseTitle');
-            editReleaseCoverUrl = document.getElementById('editReleaseCoverUrl');
-            editReleaseDate = document.getElementById('editReleaseDate');
-            cancelEditBtn = document.getElementById('cancelEditBtn');
-            saveEditBtn = document.getElementById('saveEditBtn');
-            deleteConfirmModal = document.getElementById('deleteConfirmModal');
-            deleteReleaseName = document.getElementById('deleteReleaseName');
-            deleteRecordId = document.getElementById('deleteRecordId');
-            deleteTableName = document.getElementById('deleteTableName');
-            deleteTrackIds = document.getElementById('deleteTrackIds');
-            cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
-            confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
-            toggleExistingSingle = document.getElementById('toggleExistingSingle');
-            newTrackInfoGroup = document.getElementById('newTrackInfoGroup');
-            existingTrackGroup = document.getElementById('existingTrackGroup');
-            existingTrackSelect = document.getElementById('existingTrackSelect');
-            existingSingleTrackId = document.getElementById('existingSingleTrackId');
-            singleFeatSection = document.getElementById('singleFeatSection');
-            openExistingTrackModalBtn = document.getElementById('openExistingTrackModalBtn'); // NOVO
-            existingTrackModal = document.getElementById('existingTrackModal');
-            existingTrackSearch = document.getElementById('existingTrackSearch');
-            existingTrackResults = document.getElementById('existingTrackResults');
-            cancelExistingTrackBtn = document.getElementById('cancelExistingTrackBtn');
-            editArtistFilterSelect = document.getElementById('editArtistFilterSelect');
+    // --- FUNÇÃO PARA INICIALIZAR ELEMENTOS DO DOM ---
+    function initializeDOMElements() {
+        console.log("Initializing DOM elements...");
+        try {
+            allViews = document.querySelectorAll('.page-view');
+            searchInput = document.getElementById('searchInput');
+            studioView = document.getElementById('studioView');
+            loginPrompt = document.getElementById('loginPrompt');
+            loggedInInfo = document.getElementById('loggedInInfo');
+            playerSelect = document.getElementById('playerSelect'); // Note: This ID doesn't seem to be used later
+            loginButton = document.getElementById('loginButton');
+            logoutButton = document.getElementById('logoutButton');
+            studioLaunchWrapper = document.getElementById('studioLaunchWrapper');
+            studioTabs = document.querySelectorAll('.studio-tab-btn');
+            studioForms = document.querySelectorAll('.studio-form-content');
+            newSingleForm = document.getElementById('newSingleForm');
+            singleArtistSelect = document.getElementById('singleArtistSelect');
+            singleReleaseDateInput = document.getElementById('singleReleaseDate');
+            singleFeatList = document.getElementById('singleFeatList');
+            newAlbumForm = document.getElementById('newAlbumForm');
+            albumArtistSelect = document.getElementById('albumArtistSelect');
+            albumReleaseDateInput = document.getElementById('albumReleaseDate');
+            albumTracklistEditor = document.getElementById('albumTracklistEditor'); // NOVO
+            featModal = document.getElementById('featModal');
+            featArtistSelect = document.getElementById('featArtistSelect');
+            featTypeSelect = document.getElementById('featTypeSelect');
+            confirmFeatBtn = document.getElementById('confirmFeatBtn');
+            cancelFeatBtn = document.getElementById('cancelFeatBtn');
+            trackTypeModal = document.getElementById('trackTypeModal');
+            trackTypeSelect = document.getElementById('trackTypeSelect');
+            confirmTrackTypeBtn = document.getElementById('confirmTrackTypeBtn');
+            cancelTrackTypeBtn = document.getElementById('cancelTrackTypeBtn');
+            albumTrackModal = document.getElementById('albumTrackModal');
+            albumTrackModalTitle = document.getElementById('albumTrackModalTitle');
+            openAddTrackModalBtn = document.getElementById('openAddTrackModalBtn'); // NOVO
+            albumTrackNameInput = document.getElementById('albumTrackNameInput');
+            albumTrackDurationInput = document.getElementById('albumTrackDurationInput');
+            albumTrackTypeSelect = document.getElementById('albumTrackTypeSelect');
+            albumTrackFeatList = document.getElementById('albumTrackFeatList');
+            saveAlbumTrackBtn = document.getElementById('saveAlbumTrackBtn');
+            cancelAlbumTrackBtn = document.getElementById('cancelAlbumTrackBtn');
+            editingTrackItemId = document.getElementById('editingTrackItemId');
+            editingTrackExistingId = document.getElementById('editingTrackExistingId');
+            inlineFeatAdder = document.getElementById('inlineFeatAdder');
+            inlineFeatArtistSelect = document.getElementById('inlineFeatArtistSelect');
+            inlineFeatTypeSelect = document.getElementById('inlineFeatTypeSelect');
+            confirmInlineFeatBtn = document.getElementById('confirmInlineFeatBtn');
+            cancelInlineFeatBtn = document.getElementById('cancelInlineFeatBtn');
+            addInlineFeatBtn = albumTrackModal?.querySelector('.add-inline-feat-btn'); // Needs albumTrackModal to exist
+            audioElement = document.getElementById('audioElement');
+            musicPlayerView = document.getElementById('musicPlayer');
+            playerCloseBtn = document.querySelector('.player-close-btn');
+            playerAlbumTitle = document.getElementById('playerAlbumTitle');
+            playerCoverArt = document.getElementById('playerCoverArt');
+            playerSongTitle = document.getElementById('playerSongTitle');
+            playerArtistName = document.getElementById('playerArtistName');
+            playerSeekBar = document.getElementById('playerSeekBar');
+            playerCurrentTime = document.getElementById('playerCurrentTime');
+            playerTotalTime = document.getElementById('playerTotalTime');
+            playerShuffleBtn = document.getElementById('playerShuffleBtn');
+            playerPrevBtn = document.getElementById('playerPrevBtn');
+            playerPlayPauseBtn = document.getElementById('playerPlayPauseBtn');
+            playerNextBtn = document.getElementById('playerNextBtn');
+            playerRepeatBtn = document.getElementById('playerRepeatBtn');
+            editReleaseSection = document.getElementById('editReleaseSection');
+            editReleaseListContainer = document.getElementById('editReleaseListContainer');
+            editReleaseList = document.getElementById('editReleaseList');
+            editReleaseForm = document.getElementById('editReleaseForm');
+            editReleaseId = document.getElementById('editReleaseId');
+            editReleaseType = document.getElementById('editReleaseType');
+            editReleaseTableName = document.getElementById('editReleaseTableName');
+            editArtistNameDisplay = document.getElementById('editArtistNameDisplay');
+            editReleaseTitle = document.getElementById('editReleaseTitle');
+            editReleaseCoverUrl = document.getElementById('editReleaseCoverUrl');
+            editReleaseDate = document.getElementById('editReleaseDate');
+            cancelEditBtn = document.getElementById('cancelEditBtn');
+            saveEditBtn = document.getElementById('saveEditBtn');
+            deleteConfirmModal = document.getElementById('deleteConfirmModal');
+            deleteReleaseName = document.getElementById('deleteReleaseName');
+            deleteRecordId = document.getElementById('deleteRecordId');
+            deleteTableName = document.getElementById('deleteTableName');
+            deleteTrackIds = document.getElementById('deleteTrackIds');
+            cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+            confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+            toggleExistingSingle = document.getElementById('toggleExistingSingle');
+            newTrackInfoGroup = document.getElementById('newTrackInfoGroup');
+            existingTrackGroup = document.getElementById('existingTrackGroup');
+            existingTrackSelect = document.getElementById('existingTrackSelect');
+            existingSingleTrackId = document.getElementById('existingSingleTrackId');
+            singleFeatSection = document.getElementById('singleFeatSection');
+            openExistingTrackModalBtn = document.getElementById('openExistingTrackModalBtn'); // NOVO
+            existingTrackModal = document.getElementById('existingTrackModal');
+            existingTrackSearch = document.getElementById('existingTrackSearch');
+            existingTrackResults = document.getElementById('existingTrackResults');
+            cancelExistingTrackBtn = document.getElementById('cancelExistingTrackBtn');
+            editArtistFilterSelect = document.getElementById('editArtistFilterSelect');
 
-            // ADICIONAR NOVOS ELEMENTOS DE EDIÇÃO
-            editAlbumTracklistEditor = document.getElementById('editAlbumTracklistEditor');
-            editTracklistActions = document.getElementById('editTracklistActions');
-            openEditAddTrackModalBtn = document.getElementById('openEditAddTrackModalBtn');
-            openEditExistingTrackModalBtn = document.getElementById('openEditExistingTrackModalBtn');
+            // ADICIONAR NOVOS ELEMENTOS DE EDIÇÃO
+            editAlbumTracklistEditor = document.getElementById('editAlbumTracklistEditor');
+            editTracklistActions = document.getElementById('editTracklistActions');
+            openEditAddTrackModalBtn = document.getElementById('openEditAddTrackModalBtn');
+            openEditExistingTrackModalBtn = document.getElementById('openEditExistingTrackModalBtn');
 
-            const playerElements = [audioElement, musicPlayerView, playerCloseBtn, playerPlayPauseBtn, playerSeekBar, playerNextBtn, playerPrevBtn];
-            if (playerElements.some(el => !el)) {
-                console.error("ERRO CRÍTICO: Elementos essenciais do PLAYER não foram encontrados!");
-                return false;
-            }
+            const playerElements = [audioElement, musicPlayerView, playerCloseBtn, playerPlayPauseBtn, playerSeekBar, playerNextBtn, playerPrevBtn];
+            if (playerElements.some(el => !el)) {
+                console.error("ERRO CRÍTICO: Elementos essenciais do PLAYER não foram encontrados!");
+                return false;
+            }
 
-            const essentialElements = [
-                studioView, loginPrompt, newSingleForm, newAlbumForm, featModal,
-                singleReleaseDateInput, albumReleaseDateInput, trackTypeModal,
-                albumTrackModal, openAddTrackModalBtn, inlineFeatAdder, inlineFeatArtistSelect,
-                confirmInlineFeatBtn, cancelInlineFeatBtn, addInlineFeatBtn,
-                editReleaseSection, editReleaseListContainer, editReleaseList, editReleaseForm,
-                cancelEditBtn, saveEditBtn,
-                deleteConfirmModal, cancelDeleteBtn, confirmDeleteBtn,
-                toggleExistingSingle, newTrackInfoGroup, existingTrackGroup, existingTrackSelect,
-                openExistingTrackModalBtn, existingTrackModal, existingTrackSearch, existingTrackResults, cancelExistingTrackBtn, editArtistFilterSelect,
-                // ADICIONAR CHECAGEM DOS NOVOS ELEMENTOS
-                editAlbumTracklistEditor, editTracklistActions, openEditAddTrackModalBtn, openEditExistingTrackModalBtn
-            ];
+            const essentialElements = [
+                studioView, loginPrompt, newSingleForm, newAlbumForm, featModal,
+                singleReleaseDateInput, albumReleaseDateInput, trackTypeModal,
+                albumTrackModal, openAddTrackModalBtn, inlineFeatAdder, inlineFeatArtistSelect,
+                confirmInlineFeatBtn, cancelInlineFeatBtn, addInlineFeatBtn,
+                editReleaseSection, editReleaseListContainer, editReleaseList, editReleaseForm,
+                cancelEditBtn, saveEditBtn,
+                deleteConfirmModal, cancelDeleteBtn, confirmDeleteBtn,
+                toggleExistingSingle, newTrackInfoGroup, existingTrackGroup, existingTrackSelect,
+                openExistingTrackModalBtn, existingTrackModal, existingTrackSearch, existingTrackResults, cancelExistingTrackBtn, editArtistFilterSelect,
+                // ADICIONAR CHECAGEM DOS NOVOS ELEMENTOS
+                editAlbumTracklistEditor, editTracklistActions, openEditAddTrackModalBtn, openEditExistingTrackModalBtn
+            ];
 
-            if (!allViews || allViews.length === 0 || essentialElements.some(el => !el)) {
-                 const missingIds = essentialElements
-                   .map((el, index) => {
-                       const expectedId = [ // Correlate index with expected ID (maintain this list)
-                           'studioView', 'loginPrompt', 'newSingleForm', 'newAlbumForm', 'featModal',
-                           'singleReleaseDate', 'albumReleaseDate', 'trackTypeModal',
-                           'albumTrackModal', 'openAddTrackModalBtn', 'inlineFeatAdder', 'inlineFeatArtistSelect',
-                           'confirmInlineFeatBtn', 'cancelInlineFeatBtn', /*addInlineFeatBtn has no ID*/ 'addInlineFeatBtn_placeholder',
-                           'editReleaseSection', 'editReleaseListContainer', 'editReleaseList', 'editReleaseForm',
-                           'cancelEditBtn', 'saveEditBtn',
-                           'deleteConfirmModal', 'cancelDeleteBtn', 'confirmDeleteBtn',
-                           'toggleExistingSingle', 'newTrackInfoGroup', 'existingTrackGroup', 'existingTrackSelect',
-                           'openExistingTrackModalBtn', 'existingTrackModal', 'existingTrackSearch', 'existingTrackResults', 'cancelExistingTrackBtn', 'editArtistFilterSelect',
-                           // ADICIONAR NOVOS IDs ESPERADOS
-                           'editAlbumTracklistEditor', 'editTracklistActions', 'openEditAddTrackModalBtn', 'openEditExistingTrackModalBtn'
-                       ][index];
-                       return el ? null : expectedId || `Unknown Element at index ${index}`;
-                   })
-                   .filter(Boolean); // Remove nulls (found elements)
+            if (!allViews || allViews.length === 0 || essentialElements.some(el => !el)) {
+                 const missingIds = essentialElements
+                   .map((el, index) => {
+                       const expectedId = [ // Correlate index with expected ID (maintain this list)
+                           'studioView', 'loginPrompt', 'newSingleForm', 'newAlbumForm', 'featModal',
+                           'singleReleaseDate', 'albumReleaseDate', 'trackTypeModal',
+                           'albumTrackModal', 'openAddTrackModalBtn', 'inlineFeatAdder', 'inlineFeatArtistSelect',
+                           'confirmInlineFeatBtn', 'cancelInlineFeatBtn', /*addInlineFeatBtn has no ID*/ 'addInlineFeatBtn_placeholder',
+                           'editReleaseSection', 'editReleaseListContainer', 'editReleaseList', 'editReleaseForm',
+                           'cancelEditBtn', 'saveEditBtn',
+                           'deleteConfirmModal', 'cancelDeleteBtn', 'confirmDeleteBtn',
+                           'toggleExistingSingle', 'newTrackInfoGroup', 'existingTrackGroup', 'existingTrackSelect',
+                           'openExistingTrackModalBtn', 'existingTrackModal', 'existingTrackSearch', 'existingTrackResults', 'cancelExistingTrackBtn', 'editArtistFilterSelect',
+                           // ADICIONAR NOVOS IDs ESPERADOS
+                           'editAlbumTracklistEditor', 'editTracklistActions', 'openEditAddTrackModalBtn', 'openEditExistingTrackModalBtn'
+                       ][index];
+                       return el ? null : expectedId || `Unknown Element at index ${index}`;
+                   })
+                   .filter(Boolean); // Remove nulls (found elements)
 
-                console.error("ERRO CRÍTICO: Elementos essenciais do HTML não foram encontrados!", { missingIds });
-                document.body.innerHTML = '<div style="color: red; padding: 20px;"><h1>Erro Interface</h1><p>Elementos essenciais não encontrados. Ver console.</p></div>';
-                return false;
-            }
+                console.error("ERRO CRÍTICO: Elementos essenciais do HTML não foram encontrados!", { missingIds });
+                document.body.innerHTML = '<div style="color: red; padding: 20px;"><h1>Erro Interface</h1><p>Elementos essenciais não encontrados. Ver console.</p></div>';
+                return false;
+            }
 
-            // Formata para datetime-local (YYYY-MM-DDTHH:MM)
-            const now = new Date();
-            now.setMinutes(now.getMinutes() - now.getTimezoneOffset()); // Ajusta para o fuso horário local
-            now.setSeconds(0); // Zera segundos
-            now.setMilliseconds(0); // Zera milissegundos
-            const localISOTime = now.toISOString().slice(0, 16); // Pega "YYYY-MM-DDTHH:MM"
+            // Formata para datetime-local (YYYY-MM-DDTHH:MM)
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset()); // Ajusta para o fuso horário local
+            now.setSeconds(0); // Zera segundos
+            now.setMilliseconds(0); // Zera milissegundos
+            const localISOTime = now.toISOString().slice(0, 16); // Pega "YYYY-MM-DDTHH:MM"
 
-            if(singleReleaseDateInput) singleReleaseDateInput.value = localISOTime;
-            if(albumReleaseDateInput) albumReleaseDateInput.value = localISOTime;
+            if(singleReleaseDateInput) singleReleaseDateInput.value = localISOTime;
+            if(albumReleaseDateInput) albumReleaseDateInput.value = localISOTime;
 
-            console.log("DOM elements initialized.");
-            return true;
-        } catch(error) {
-            console.error("Erro ao inicializar elementos do DOM:", error);
-            document.body.innerHTML = '<div style="color: red; padding: 20px;"><h1>Erro Interface</h1><p>Erro fatal ao buscar elementos da página. Verifique o console.</p></div>';
-            return false;
-        }
-    }
+            console.log("DOM elements initialized.");
+            return true;
+        } catch(error) {
+            console.error("Erro ao inicializar elementos do DOM:", error);
+            document.body.innerHTML = '<div style="color: red; padding: 20px;"><h1>Erro Interface</h1><p>Erro fatal ao buscar elementos da página. Verifique o console.</p></div>';
+            return false;
+        }
+    }
 
-    // --- 1. CARREGAMENTO DE DADOS ---
-    async function fetchAllAirtablePages(baseUrl, fetchOptions) {
-        let allRecords = [];
-        let offset = null;
-        do {
-            const separator = baseUrl.includes('?') ? '&' : '?';
-            const url = offset ? `${baseUrl}${separator}offset=${offset}` : baseUrl;
-            const response = await fetch(url, fetchOptions);
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error(`Falha ao buscar ${url}: ${response.status} - ${errorText}`);
-                throw new Error(`Falha na requisição para ${baseUrl}. Status: ${response.status}`);
-            }
-            const data = await response.json();
-            if (data.records) {
-                allRecords.push(...data.records);
-            }
-            offset = data.offset;
-        } while (offset);
-        return { records: allRecords };
-    }
+    // --- 1. CARREGAMENTO DE DADOS ---
+    async function fetchAllAirtablePages(baseUrl, fetchOptions) {
+        let allRecords = [];
+        let offset = null;
+        do {
+            const separator = baseUrl.includes('?') ? '&' : '?';
+            const url = offset ? `${baseUrl}${separator}offset=${offset}` : baseUrl;
+            const response = await fetch(url, fetchOptions);
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`Falha ao buscar ${url}: ${response.status} - ${errorText}`);
+                throw new Error(`Falha na requisição para ${baseUrl}. Status: ${response.status}`);
+            }
+            const data = await response.json();
+            if (data.records) {
+                allRecords.push(...data.records);
+            }
+            offset = data.offset;
+        } while (offset);
+        return { records: allRecords };
+    }
 
-    async function loadAllData() {
+    async function loadAllData() {
         const artistsURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Artists?filterByFormula=%7BArtista%20Principal%7D%3D1`;
         const albumsURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent('Álbuns')}`;
         const musicasURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent('Músicas')}`;
@@ -372,7 +372,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
             };
 
-            const formattedAlbums = formatReleases(albumsData.records, true);
+            const formattedAlbums = formatReleases(albumsData.records, true);
             const formattedSingles = formatReleases(singlesData.records, false);
 
             const formattedPlayers = (playersData?.records || []).map(record => ({
@@ -396,87 +396,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return null; // Indicate failure
         }
     }
-            const artistsMapById = new Map();
-            const artistsList = (artistsData.records || []).map(record => {
-                const fields = record.fields;
-                const artist = {
-                    id: record.id,
-                    name: fields.Name || 'Artista Desconhecido',
-                    imageUrl: (fields['URL da Imagem']?.[0]?.url) || 'https://i.imgur.com/AD3MbBi.png', // Default image
-                    off: fields['Inspirações (Off)'] || [],
-                    RPGPoints: fields.RPGPoints || 0,
-                    LastActive: fields.LastActive || null
-                };
-                artistsMapById.set(artist.id, artist.name);
-                return artist;
-            });
-
-            const formatReleases = (records, isAlbum) => {
-                if (!records) return [];
-                return records.map(record => {
-                    const fields = record.fields;
-                    const id = record.id;
-                    // Find associated tracks from the map
-                    const tracks = Array.from(musicasMap.values())
-                        .filter(song => (isAlbum ? song.albumIds.includes(id) : song.singleIds.includes(id)))
-                        .sort((a, b) => (a.trackNumber || 0) - (b.trackNumber || 0)); // Sort by track number
-
-                    const totalDuration = tracks.reduce((sum, track) => sum + (track.durationSeconds || 0), 0);
-                    const totalAlbumStreams = tracks.reduce((sum, track) => sum + (track.totalStreams || 0), 0);
-
-                    const artistId = Array.isArray(fields['Artista']) ? fields['Artista'][0] : (fields['Artista'] || null);
-                    const artistName = artistId ? artistsMapById.get(artistId) : "Artista Desconhecido";
-                    const imageFieldName = isAlbum ? 'Capa do Álbum' : 'Capa';
-                    const imageUrl = (fields[imageFieldName]?.[0]?.url) || 'https://i.imgur.com/AD3MbBi.png'; // Default image
-
-                    // Airtable DATETIME fields return ISO 8601 UTC strings
-                    const releaseDateISO = fields['Data de Lançamento'] || null;
-
-                    return {
-                        id: id,
-                        title: fields['Nome do Álbum'] || fields['Nome do Single/EP'] || 'Título Desconhecido',
-                        artist: artistName,
-                        artistId: artistId,
-                        metascore: fields['Metascore'] || 0,
-                        imageUrl: imageUrl,
-                        releaseDate: releaseDateISO, // Store the full ISO 8601 string
-                        tracks: tracks,
-                        trackIds: tracks.map(t => t.id),
-                        totalDurationSeconds: totalDuration,
-                        weeklyStreams: fields['Stream do album'] || 0, // Ensure field name matches Airtable
-                        totalStreams: totalAlbumStreams,
-                        type: isAlbum ? 'album' : 'single',
-                        tableName: isAlbum ? 'Álbuns' : 'Singles e EPs'
-                    };
-                });
-            };
-
-            const formattedAlbums = formatReleases(albumsData.records, true);
-            const formattedSingles = formatReleases(singlesData.records, false);
-
-            const formattedPlayers = (playersData?.records || []).map(record => ({
-                id: record.id,
-                name: record.fields.Nome,
-                password: record.fields.Senha, // Be mindful of storing/transmitting passwords
-                artists: record.fields.Artistas || []
-            }));
-
-            console.log("Dados do Airtable carregados e formatados.");
-            return {
-                allArtists: artistsList,
-                albums: formattedAlbums,
-                singles: formattedSingles,
-                players: formattedPlayers,
-                musicas: Array.from(musicasMap.values()) // Convert map values back to array
-            };
-        } catch (error) {
-            console.error("Falha GERAL ao carregar dados do Airtable:", error);
-            document.body.innerHTML = '<div style="color: red; padding: 20px;"><h1>Erro Crítico</h1><p>Não foi possível carregar os dados. Tente recarregar a página ou contate o suporte.</p></div>';
-            return null; // Indicate failure
-        }
-    }
-
-    const initializeData = (data) => {
+const initializeData = (data) => {
         try {
             // Load previous chart data from localStorage
             try {
@@ -566,7 +486,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                             songInDb.albumId = item.id;
                         }
                         if (!songInDb.parentReleaseDate && item.releaseDate) {
-                           console.warn(`Song ${songInDb.id} lacked parentReleaseDate, setting from ${item.id}`);
+                             console.warn(`Song ${songInDb.id} lacked parentReleaseDate, setting from ${item.id}`);
                             songInDb.parentReleaseDate = item.releaseDate;
                         }
                     }
@@ -602,7 +522,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             return true; // Indicate successful initialization
         } catch (error) {
             console.error("ERRO CRÍTICO durante initializeData:", error);
-            alert("Erro grave ao processar os dados carregados. A aplicação pode não funcionar corretamente.");
+            alert("Erro grave ao processar os dados carregados. A aplicação pode não funcionar corretamente.");
             return false; // Indicate failure
         }
     };
@@ -1550,7 +1470,7 @@ const computeChartData = (artistsArray) => {
                 points: artist.RPGPoints || 0,
                 // Passa os dados para o cálculo de POPULARIDADE
                 careerTotalStreams: artist.careerTotalStreams || 0,
-                personalPoints: artist.personalPoints || 150
+            	personalPoints: artist.personalPoints || 150
             }))
             .sort((a, b) => (b.streams || 0) - (a.streams || 0))
             .slice(0, CHART_TOP_N);
@@ -1582,13 +1502,13 @@ const computeChartData = (artistsArray) => {
             } else if (currentRank < previousRank) {
                 iconClass = 'fa-caret-up';
                 trendClass = 'trend-up';
-           } else if (currentRank > previousRank) {
+            } else if (currentRank > previousRank) {
                 iconClass = 'fa-caret-down';
                 trendClass = 'trend-down';
             }
 
             // --- INÍCIO DA LÓGICA DE POPULARIDADE ---
-           // artist.streams (agora artist.simulatedStreams) ordena o chart
+            // artist.streams (agora artist.simulatedStreams) ordena o chart
             // Mas vamos exibir a popularidade real
             const basePopularity = artist.careerTotalStreams;
             const pointsModifier = (artist.personalPoints || 100) / 100;
