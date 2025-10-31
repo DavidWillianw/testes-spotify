@@ -269,12 +269,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         return { records: allRecords };
     }
 
-    async function loadAllData() {
-        const artistsURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Artists?filterByFormula=%7BArtista%20Principal%7D%3D1`;
-        const albumsURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent('Álbuns')}`;
-        const musicasURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent('Músicas')}`;
-        const singlesURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent('Singles e EPs')}`;
-        const playersURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Jogadores`;
+ async function loadAllData() {
+        // --- INÍCIO DA CORREÇÃO ---
+        // Adiciona um parâmetro de ordenação para estabilizar a paginação (offset)
+        const sortParam = "?sort%5B0%5D%5Bfield%5D=createdTime&sort%5B0%5D%5Bdirection%5D=asc"; // para URLs sem "?"
+        const sortParamAdd = "&sort%5B0%5D%5Bfield%5D=createdTime&sort%5B0%5D%5Bdirection%5D=asc"; // para URLs que JÁ TÊM "?"
+
+        // A 'artistsURL' já tem um filtro, então usamos '&'
+        const artistsURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Artists?filterByFormula=%7BArtista%20Principal%7D%3D1${sortParamAdd}`;
+        
+        // As outras URLs não têm, então usamos '?'
+        const albumsURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent('Álbuns')}${sortParam}`;
+        const musicasURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent('Músicas')}${sortParam}`;
+        const singlesURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent('Singles e EPs')}${sortParam}`;
+        const playersURL = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Jogadores${sortParam}`;
+        // --- FIM DA CORREÇÃO ---
 
         const fetchOptions = { headers: { 'Authorization': `Bearer ${AIRTABLE_API_KEY}` } };
         console.log("Carregando dados do Airtable...");
@@ -282,7 +291,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const [artistsData, albumsData, musicasData, singlesData, playersData] = await Promise.all([
                 fetchAllAirtablePages(artistsURL, fetchOptions),
                 fetchAllAirtablePages(albumsURL, fetchOptions),
-                fetchAllAirtablePages(musicasURL, fetchOptions),
+                fetchAllAirtablePages(musicasURL, fetchOptions), // Esta era a URL que estava falhando
                 fetchAllAirtablePages(singlesURL, fetchOptions),
                 fetchAllAirtablePages(playersURL, fetchOptions)
             ]);
@@ -326,7 +335,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     off: fields['Inspirações (Off)'] || [],
                     RPGPoints: fields.RPGPoints || 0,
                     LastActive: fields.LastActive || null,
-                    personalPoints: fields['Pontos Pessoais'] || 150 // <-- LINHA ADICIONADA
+                    personalPoints: fields['Pontos Pessoais'] || 150 // <-- SUA LÓGICA DE POPULARIDADE
                 };
                 artistsMapById.set(artist.id, artist.name);
                 return artist;
@@ -378,6 +387,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const formattedPlayers = (playersData?.records || []).map(record => ({
                 id: record.id,
                 name: record.fields.Nome,
+name: record.fields.Nome,
                 password: record.fields.Senha, // Be mindful of storing/transmitting passwords
                 artists: record.fields.Artistas || []
             }));
@@ -388,7 +398,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 albums: formattedAlbums,
                 singles: formattedSingles,
                 players: formattedPlayers,
-                musicas: Array.from(musicasMap.values()) // Convert map values back to array
+section       musicas: Array.from(musicasMap.values()) // Convert map values back to array
             };
         } catch (error) {
             console.error("Falha GERAL ao carregar dados do Airtable:", error);
